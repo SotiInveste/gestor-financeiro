@@ -149,11 +149,22 @@ body {
 
 /* Botão de tema */
 .btn-theme {
-  background: transparent; border: 1px solid var(--border); color: var(--text-soft);
-  border-radius: 8px; padding: 6px 11px; font-size: 15px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text-soft); border-radius: 8px;
   cursor: pointer; font-family: inherit;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
-.btn-theme:hover { background: var(--hover); }
+.btn-theme:hover { background: var(--hover); color: var(--text); border-color: var(--border-strong); }
+.btn-theme:active { transform: scale(.94); }
+.btn-theme:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.btn-theme svg { width: 17px; height: 17px; display: block; }
+
+/* Lua no tema claro, sol no tema escuro */
+.btn-theme .icon-sun { display: none; }
+[data-theme="dark"] .btn-theme .icon-moon { display: none; }
+[data-theme="dark"] .btn-theme .icon-sun { display: block; }
 
 /* ═══ Botões ═══ */
 .btn {

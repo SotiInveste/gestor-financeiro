@@ -1,63 +1,88 @@
 // ═══════════════════════════════════════════════════════════
 // Tema claro / escuro
 //
-// A preferência fica no localStorage (é só uma opção visual,
-// não são dados). Se nunca foi escolhida, segue a preferência
-// do sistema operativo.
+// Este módulo inicializa-se sozinho — é carregado diretamente
+// pelo index.html e não depende da ordem de arranque do app.js.
+// O clique é apanhado por delegação no document, por isso
+// funciona mesmo que o botão seja redesenhado.
 // ═══════════════════════════════════════════════════════════
 
 const STORAGE_KEY = "gestorfin-theme";
 
-/** Aplica o tema ao documento e avisa quem precisa de redesenhar. */
-export function applyTheme(theme, { notify = true } = {}) {
-  document.documentElement.dataset.theme = theme;
+function readStored() {
+  try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
+}
 
-  const btn = document.getElementById("btn-theme");
-  if (btn) {
-    btn.textContent = theme === "dark" ? "☀️" : "🌙";
-    btn.title = theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro";
-    btn.setAttribute("aria-label", btn.title);
-  }
-
-  if (notify) document.dispatchEvent(new CustomEvent("theme-changed"));
+function store(theme) {
+  try { localStorage.setItem(STORAGE_KEY, theme); } catch { /* modo privado */ }
 }
 
 export function currentTheme() {
   return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
+/** Aplica o tema e avisa quem precisa de redesenhar (gráficos). */
+export function applyTheme(theme, { notify = true } = {}) {
+  document.documentElement.dataset.theme = theme;
+
+  const btn = document.getElementById("btn-theme");
+  if (btn) {
+    const label = theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro";
+    btn.title = label;
+    btn.setAttribute("aria-label", label);
+    btn.setAttribute("aria-pressed", String(theme === "dark"));
+  }
+
+  if (notify) document.dispatchEvent(new CustomEvent("theme-changed"));
+}
+
 export function toggleTheme() {
   const next = currentTheme() === "dark" ? "light" : "dark";
-  try { localStorage.setItem(STORAGE_KEY, next); } catch { /* modo privado */ }
+  store(next);
   applyTheme(next);
 }
 
-/** Liga o botão e acompanha a preferência do sistema. */
+/**
+ * Mantida por compatibilidade: o app.js chama-a, mas a
+ * inicialização já aconteceu no carregamento deste módulo.
+ */
 export function initTheme() {
-  // O tema já foi aplicado pelo script inline do <head> para evitar
-  // o flash de ecrã branco. Aqui só sincronizamos o ícone.
   applyTheme(currentTheme(), { notify: false });
-
-  const btn = document.getElementById("btn-theme");
-  if (btn) btn.onclick = toggleTheme;
-
-  // Se o utilizador nunca escolheu, segue o sistema em tempo real.
-  const media = window.matchMedia("(prefers-color-scheme: dark)");
-  media.addEventListener("change", e => {
-    let saved = null;
-    try { saved = localStorage.getItem(STORAGE_KEY); } catch { /* ignorar */ }
-    if (!saved) applyTheme(e.matches ? "dark" : "light");
-  });
 }
 
 /** Cores atuais do tema, para o Chart.js. */
 export function themeColors() {
   const cs = getComputedStyle(document.documentElement);
-  const read = name => cs.getPropertyValue(name).trim();
+  const read = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
   return {
-    text: read("--text-soft"),
-    muted: read("--muted"),
-    grid: read("--border-soft"),
-    surface: read("--surface"),
+    text: read("--text-soft", "#666666"),
+    muted: read("--muted", "#999999"),
+    grid: read("--border-soft", "#f0ede8"),
+    surface: read("--surface", "#ffffff"),
   };
+}
+
+// ─── Arranque automático ───
+
+// Delegação: apanha o clique mesmo que o botão ainda não exista
+// quando este módulo corre, ou que venha a ser recriado.
+document.addEventListener("click", (event) => {
+  if (event.target.closest("#btn-theme")) {
+    event.preventDefault();
+    toggleTheme();
+  }
+});
+
+// Segue a preferência do sistema enquanto não houver escolha explícita.
+const media = window.matchMedia("(prefers-color-scheme: dark)");
+const onSystemChange = (e) => { if (!readStored()) applyTheme(e.matches ? "dark" : "light"); };
+if (media.addEventListener) media.addEventListener("change", onSystemChange);
+else if (media.addListener) media.addListener(onSystemChange); // Safari antigo
+
+// Sincroniza o estado do botão assim que o DOM estiver pronto.
+function sync() { applyTheme(currentTheme(), { notify: false }); }
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", sync);
+} else {
+  sync();
 }
