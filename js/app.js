@@ -11,6 +11,7 @@ import { exportToExcel } from "./export.js";
 import { parseStatement, readFile } from "./import.js";
 import { MONTHS, fmt } from "./utils.js";
 import { toast } from "./ui.js";
+import { initTheme } from "./theme.js";
 
 // ═══ Arranque ═══
 
@@ -62,6 +63,7 @@ async function startApp(session) {
 
   buildPeriodSelectors();
   initManualForm();
+  initTheme();
   bindEvents();
 
   // Espera que o DOM esteja pintado antes de desenhar os gráficos —
@@ -244,6 +246,7 @@ function bindEvents() {
   // Eventos internos disparados pelos módulos
   document.addEventListener("data-changed", renderAll);
   document.addEventListener("period-changed", renderAll);
+  document.addEventListener("theme-changed", renderAll);
 
   // Atalhos de teclado
   document.addEventListener("keydown", e => {

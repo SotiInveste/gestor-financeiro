@@ -4,6 +4,7 @@
 
 import { state, currentMonthTransactions, monthTotals, expensesByCategory, yearlySeries } from "./state.js";
 import { fmt, MONTHS_SHORT, CHART_COLORS, esc } from "./utils.js";
+import { themeColors } from "./theme.js";
 
 let categoryChart = null;
 let evolutionChart = null;
@@ -47,6 +48,8 @@ function renderCategoryChart(data, totalExpense) {
 
   if (categoryChart) categoryChart.destroy();
 
+  const colors = themeColors();
+
   if (!data.length) {
     legend.innerHTML = '<span class="muted">Sem despesas neste mês.</span>';
     return;
@@ -60,7 +63,7 @@ function renderCategoryChart(data, totalExpense) {
         data: data.map(d => d.value),
         backgroundColor: data.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
         borderWidth: 2,
-        borderColor: "#fff",
+        borderColor: colors.surface,
       }],
     },
     options: {
@@ -118,6 +121,7 @@ function renderEvolutionChart() {
   if (!canvas) return;
 
   const series = yearlySeries();
+  const colors = themeColors();
   if (evolutionChart) evolutionChart.destroy();
 
   evolutionChart = new Chart(canvas, {
@@ -133,15 +137,21 @@ function renderEvolutionChart() {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 12 } } },
+        legend: {
+          position: "bottom",
+          labels: { boxWidth: 12, font: { size: 12 }, color: colors.text },
+        },
         tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
       },
       scales: {
-        x: { grid: { display: false } },
+        x: {
+          grid: { display: false },
+          ticks: { color: colors.muted, font: { size: 12 } },
+        },
         y: {
           border: { display: false },
-          ticks: { callback: v => `${v}€`, font: { size: 11 } },
-          grid: { color: "#f0ede8" },
+          ticks: { callback: v => `${v}€`, font: { size: 11 }, color: colors.muted },
+          grid: { color: colors.grid },
         },
       },
       onClick: (_evt, elements) => {

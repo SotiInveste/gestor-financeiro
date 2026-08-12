@@ -6,6 +6,18 @@
   <title>GestorFin — Gestão de Despesas</title>
   <link rel="stylesheet" href="css/styles.css">
 
+  <!-- Aplica o tema antes de pintar, para não haver flash branco -->
+  <script>
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem("gestorfin-theme"); } catch (e) {}
+      var dark = saved
+        ? saved === "dark"
+        : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    })();
+  </script>
+
   <!-- ══════════════════════════════════════════════════════════
        IMPORTANTE: bibliotecas carregadas como <script> direto.
        Nunca carregar o SDK do Supabase dinamicamente via
@@ -49,6 +61,7 @@
           Movimentos <span id="badge-pending" class="badge hidden">0</span>
         </button>
         <button id="btn-export" class="btn btn-green">↓ Excel</button>
+        <button id="btn-theme" class="btn-theme" title="Mudar para tema escuro" aria-label="Mudar para tema escuro">🌙</button>
         <button id="btn-logout" class="btn btn-ghost" title="Terminar sessão">Sair</button>
       </nav>
     </header>
