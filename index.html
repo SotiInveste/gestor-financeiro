@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GestorFin — Gestão de Despesas</title>
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- ══════════════════════════════════════════════════════════
+       IMPORTANTE: bibliotecas carregadas como <script> direto.
+       Nunca carregar o SDK do Supabase dinamicamente via
+       document.createElement('script') — provoca race conditions
+       em que o listener de auth nunca resolve.
+       ══════════════════════════════════════════════════════════ -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx-js-style.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ─── Ecrã de carregamento inicial ─── -->
+  <div id="boot" class="boot">
+    <div class="spinner"></div>
+    <p>A carregar…</p>
+  </div>
+
+  <!-- ─── Login (magic link) ─── -->
+  <div id="login-screen" class="login-screen hidden">
+    <div class="login-card">
+      <h1 class="logo">Gestor<span>Fin</span></h1>
+      <p class="login-sub">As tuas despesas mensais, sem folhas de cálculo.</p>
+      <input type="email" id="login-email" placeholder="o.teu@email.com" autocomplete="email">
+      <button id="login-btn" class="btn btn-primary btn-block">Entrar com link mágico</button>
+      <p id="login-msg" class="login-msg"></p>
+    </div>
+  </div>
+
+  <!-- ─── Aplicação ─── -->
+  <div id="app" class="hidden">
+
+    <header class="header">
+      <div class="header-left">
+        <span class="logo">Gestor<span>Fin</span></span>
+        <span id="header-balance" class="header-balance"></span>
+      </div>
+      <nav class="nav">
+        <button class="nav-btn active" data-page="dashboard">Dashboard</button>
+        <button class="nav-btn" data-page="transactions">
+          Movimentos <span id="badge-pending" class="badge hidden">0</span>
+        </button>
+        <button id="btn-export" class="btn btn-green">↓ Excel</button>
+        <button id="btn-logout" class="btn btn-ghost" title="Terminar sessão">Sair</button>
+      </nav>
+    </header>
+
+    <main class="main">
+
+      <!-- Seletor de período -->
+      <div class="period-bar">
+        <button id="prev-month" class="btn btn-icon">‹</button>
+        <select id="select-month" class="select"></select>
+        <select id="select-year" class="select"></select>
+        <button id="next-month" class="btn btn-icon">›</button>
+        <span id="period-count" class="muted"></span>
+      </div>
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <section id="page-dashboard" class="page">
+        <div class="kpi-grid">
+          <div class="card kpi"><div class="kpi-label">Receitas</div><div id="kpi-income" class="kpi-value green">—</div></div>
+          <div class="card kpi"><div class="kpi-label">Despesas</div><div id="kpi-expense" class="kpi-value red">—</div></div>
+          <div class="card kpi"><div class="kpi-label">Saldo</div><div id="kpi-balance" class="kpi-value">—</div></div>
+        </div>
+
+        <div id="dashboard-empty" class="card empty hidden">
+          <div class="empty-icon">📂</div>
+          <strong>Sem movimentos neste mês</strong>
+          <p>Vai a <b>Movimentos</b> e importa o extrato do Activo Bank.</p>
+        </div>
+
+        <div id="dashboard-charts" class="chart-grid">
+          <div class="card">
+            <h2 class="card-title">Despesas por categoria</h2>
+            <div class="chart-wrap"><canvas id="chart-categories"></canvas></div>
+            <div id="legend-categories" class="legend"></div>
+          </div>
+          <div class="card">
+            <h2 class="card-title">Top categorias</h2>
+            <div id="top-categories" class="top-list"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">Evolução anual — <span id="year-label"></span></h2>
+          <div class="chart-wrap tall"><canvas id="chart-evolution"></canvas></div>
+        </div>
+      </section>
+
+      <!-- ═══ MOVIMENTOS ═══ -->
+      <section id="page-transactions" class="page hidden">
+
+        <div class="upload-area">
+          <p class="upload-hint">📥 Importa o extrato Excel do Activo Bank</p>
+          <label class="btn btn-primary">
+            <input type="file" id="file-input" accept=".xlsx,.xls" hidden>
+            Escolher ficheiro
+          </label>
+          <p id="upload-msg" class="upload-msg"></p>
+        </div>
+
+        <div class="actions-bar">
+          <button id="btn-validate-all" class="btn btn-ghost">✓ Validar todos</button>
+          <button id="btn-toggle-manual" class="btn btn-outline">+ Movimento manual</button>
+        </div>
+
+        <!-- Formulário manual -->
+        <div id="manual-form" class="card manual-form hidden">
+          <h3 class="card-title">Novo movimento manual</h3>
+          <div class="form-grid">
+            <label>Data Mov.<input type="date" id="m-movement-date" class="select"></label>
+            <label>Data Valor<input type="date" id="m-value-date" class="select"></label>
+            <label class="col-2">Descrição<input type="text" id="m-description" class="select" placeholder="Ex: Transferência para PPR"></label>
+            <label>Valor (€)<input type="number" id="m-amount" class="select" step="0.01" min="0" placeholder="0.00"></label>
+          </div>
+          <div class="form-grid">
+            <label class="col-2">Categoria<select id="m-category" class="select"></select></label>
+            <label class="col-2">Tipo
+              <div class="type-toggle">
+                <button type="button" class="type-btn active" data-type="expense">↓ Saída</button>
+                <button type="button" class="type-btn" data-type="income">↑ Entrada</button>
+              </div>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button id="m-cancel" class="btn btn-ghost">Cancelar</button>
+            <button id="m-save" class="btn btn-primary">Adicionar</button>
+          </div>
+        </div>
+
+        <!-- Tabela -->
+        <div id="table-empty" class="card empty hidden">
+          <div class="empty-icon">📋</div>
+          <p>Sem movimentos neste mês. Importa o extrato acima.</p>
+        </div>
+
+        <div id="table-wrap" class="card table-card">
+          <div class="table-scroll">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Data Mov.</th>
+                  <th>Data Valor</th>
+                  <th>Descrição</th>
+                  <th>Nota</th>
+                  <th>Categoria</th>
+                  <th class="right">Valor</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="table-body"></tbody>
+              <tfoot id="table-foot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ─── Modal de confirmação ─── -->
+  <div id="modal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3 id="modal-title"></h3>
+      <p id="modal-text"></p>
+      <div id="modal-extra"></div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn btn-ghost">Cancelar</button>
+        <button id="modal-ok" class="btn btn-primary">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
