@@ -5,7 +5,7 @@
 // vez de refazer o fetch completo — muito mais rápido.
 // ═══════════════════════════════════════════════════════════
 
-import { monthOf, yearOf } from "./utils.js";
+import { monthOf, yearOf, makeHash } from "./utils.js";
 
 export const state = {
   transactions: [],
@@ -73,7 +73,18 @@ export function removeLocal(id) {
 }
 
 export function existingHashes() {
-  return new Set(state.transactions.map(t => t.source_hash).filter(Boolean));
+  const set = new Set();
+  state.transactions.forEach(t => {
+    if (t.source_hash) {
+      set.add(t.source_hash);
+    } else if (t.value_date && t.description) {
+      // Os movimentos vindos da API não guardam source_hash (ver
+      // openbanking.js). Calcula-se aqui para que a importação de
+      // Excel os reconheça e não os volte a inserir.
+      set.add(makeHash(t.value_date, t.description, t.amount));
+    }
+  });
+  return set;
 }
 
 /** Referências dos movimentos já vindos da API do banco. */
