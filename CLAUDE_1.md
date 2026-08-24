@@ -128,6 +128,10 @@ lá, não nas funções, para as regras não existirem em dois sítios.
   O `openbanking.js` só trata o retorno como sendo do banco quando o `state`
   corresponde ao guardado em `localStorage`.
 - O nome do banco na Enable Banking é `Activo Bank`, com espaço.
+- **Nunca combinar `strategy=longest` com `date_from`.** A API responde 200 com
+  zero movimentos em vez de recortar o intervalo — falha silenciosa, fácil de
+  confundir com "o banco não tem mais histórico". A `eb-sync` já ignora o
+  `date_from` nesse caso, mas convém saber ao depurar.
 
 - Fornecedor: **Enable Banking**, modo *Restricted Production* (contas próprias, gratuito).
   A alternativa óbvia — GoCardless Bank Account Data, ex-Nordigen — fechou a novos registos.
