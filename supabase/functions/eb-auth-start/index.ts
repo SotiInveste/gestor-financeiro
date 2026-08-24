@@ -28,10 +28,14 @@ const EB_BASE = "https://api.enablebanking.com";
 // 180 dias e podem devolver menos — o valor real vem na resposta.
 const CONSENT_DAYS = 180;
 
+// O SDK do Supabase envia apikey e x-client-info além do authorization.
+// Se não constarem aqui, o preflight falha e o pedido nem chega a sair.
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, apikey, x-client-info, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 function json(body: unknown, status = 200): Response {
