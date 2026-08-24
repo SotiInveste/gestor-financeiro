@@ -363,3 +363,38 @@ body {
   .form-grid .col-2 { grid-column: span 2; }
   .toast-container { left: 14px; right: 14px; bottom: 14px; }
 }
+
+/* ═══ Ligação ao banco (open banking) ═══ */
+.bank-section { margin-bottom: 16px; }
+
+.bank-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.bank-head .card-title { margin: 0; }
+
+.bank-list { display: flex; flex-direction: column; gap: 10px; }
+
+.bank-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.bank-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bank-info strong { font-size: 14px; }
+
+.bank-warn { font-size: 13px; color: var(--amber); }
+
+@media (max-width: 560px) {
+  .bank-row { flex-direction: column; align-items: stretch; }
+  .bank-row .btn { width: 100%; }
+}
