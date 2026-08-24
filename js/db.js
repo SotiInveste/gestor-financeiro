@@ -111,3 +111,16 @@ export async function deleteRule(id) {
   const { error } = await sb.from("fin_rules").delete().eq("id", id);
   if (error) throw error;
 }
+
+// ─── Contas bancárias ligadas (open banking) ───
+
+/** Carrega as contas ligadas que não foram desligadas. */
+export async function fetchBankAccounts() {
+  const { data, error } = await sb
+    .from("fin_bank_accounts")
+    .select("*")
+    .is("deleted_at", null)
+    .order("created_at");
+  if (error) throw error;
+  return data || [];
+}
