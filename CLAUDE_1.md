@@ -128,10 +128,22 @@ lá, não nas funções, para as regras não existirem em dois sítios.
   O `openbanking.js` só trata o retorno como sendo do banco quando o `state`
   corresponde ao guardado em `localStorage`.
 - O nome do banco na Enable Banking é `Activo Bank`, com espaço.
-- **Nunca combinar `strategy=longest` com `date_from`.** A API responde 200 com
-  zero movimentos em vez de recortar o intervalo — falha silenciosa, fácil de
-  confundir com "o banco não tem mais histórico". A `eb-sync` já ignora o
-  `date_from` nesse caso, mas convém saber ao depurar.
+- **O limite de recolhas manifesta-se como uma lista vazia, não como erro.**
+  Esgotadas as ~4 recolhas do dia, `GET /accounts/{uid}/transactions` responde
+  `200` com `{ transactions: [], continuation_key: null }` — para qualquer
+  `date_from` e qualquer `strategy`, mesmo em períodos que sabemos ter
+  movimentos. Não há `429`.
+
+  Ao depurar, isto imita convincentemente "o banco não tem mais histórico" e
+  "o parâmetro está errado". Antes de mexer em parâmetros, verificar quantas
+  chamadas já foram feitas nesse dia — e esperar pelo dia seguinte. A `eb-sync`
+  regista um `console.error` sempre que a lista vem vazia, com os parâmetros
+  usados e se os cabeçalhos PSU seguiram.
+
+- **Sem `PSU-IP-Address`, todas as chamadas gastam a quota de background.**
+  O IP do cliente é lido de `x-forwarded-for`, `x-real-ip` ou `cf-connecting-ip`.
+  Se nenhum existir, a `eb-sync` avisa no log com a lista de cabeçalhos
+  recebidos — vale a pena confirmar isso antes de assumir outra causa.
 
 - Fornecedor: **Enable Banking**, modo *Restricted Production* (contas próprias, gratuito).
   A alternativa óbvia — GoCardless Bank Account Data, ex-Nordigen — fechou a novos registos.
