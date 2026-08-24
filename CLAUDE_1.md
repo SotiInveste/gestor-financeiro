@@ -30,11 +30,15 @@ js/
   theme.js              # tema claro/escuro (auto-inicializável)
   ui.js                 # toasts, modais, spinners
   utils.js              # datas, formatação, hashes
+  openbanking.js        # ligação ao banco, sincronização, secção "Banco ligado"
   app.js                # arranque e navegação
 supabase/
-  schema.sql            # esquema + políticas RLS
+  migrations/           # SQL aditivo, corrido à mão no SQL Editor
   functions/            # cópia de referência das Edge Functions
 ```
+
+Não existe `schema.sql` completo no repositório — o esquema real vive no
+Supabase. As migrações em `supabase/migrations/` são aditivas e idempotentes.
 
 ## Regras que não se quebram
 
@@ -79,13 +83,51 @@ a regra. É esta aprendizagem que reduz o trabalho mensal — não a remover.
 
 ## Deduplicação
 
-- Movimentos importados de Excel: hash de `value_date | description | amount`.
+- Movimentos importados de Excel: hash de `value_date | description | amount`,
+  guardado em `source_hash` (tem índice único).
 - Movimentos vindos da API: `entry_reference` do Enable Banking (imutável por conta).
-- **Bug conhecido por resolver**: o índice único em `fin_rules` foi criado sobre
-  `upper(keyword)` mas os upserts em `db.js` usam a coluna `keyword` simples.
-  É preciso recriar o índice sem a expressão `upper()`.
+  **O `source_hash` fica a `null` nestes.** O hash não distingue dois movimentos
+  legítimos iguais no mesmo dia (dois cafés de 1,50 €) e gravá-lo viola o índice
+  único. O hash continua a ser calculado no `openbanking.js`, mas só para filtrar
+  contra o que já veio do Excel.
+- `existingHashes()` no `state.js` calcula o hash em tempo real para as linhas
+  sem `source_hash`, para que a importação de Excel reconheça os movimentos que
+  vieram da API. A descrição das duas origens nem sempre coincide, por isso a
+  proteção é boa mas não é infalível.
 
-## Integração open banking (em curso)
+## Integração open banking (a funcionar)
+
+Ligada e operacional desde 24/08/2026. Quatro Edge Functions, todas
+auto-contidas (o deploy é pelo Dashboard, que não faz bundling de imports
+partilhados):
+
+| Função | Papel |
+| --- | --- |
+| `eb-ping` | Teste de credenciais — assina o JWT e chama `GET /application` |
+| `eb-auth-start` | `action: "list"` lista bancos; `action: "start"` devolve o URL de autorização |
+| `eb-auth-callback` | Troca o `code` por sessão e grava as contas em `fin_bank_accounts` |
+| `eb-sync` | Vai buscar movimentos, pagina e normaliza — proxy fino, não grava |
+
+Secrets: `EB_APPLICATION_ID`, `EB_PRIVATE_KEY` (PKCS#8 — o Deno não aceita
+PKCS#1), `EB_REDIRECT_URL` (`https://sotiinveste.github.io/gestor-financeiro/`,
+igual ao carácter ao registado no painel da Enable Banking).
+
+O frontend vive em `js/openbanking.js`. O mapeamento e a categorização ficam
+lá, não nas funções, para as regras não existirem em dois sítios.
+
+**Aprendido na prática:**
+
+- O ActivoBank dá cerca de **6 meses** de histórico com `strategy=longest`
+  dentro da janela da primeira hora — mais do que os 90 dias habituais.
+  Para períodos anteriores, só o extrato Excel.
+- Reautorizar repõe `last_synced_at` a `null`, o que faz a sincronização
+  seguinte voltar a usar `strategy=longest`. É assim que se reabre a janela.
+- O `Access-Control-Allow-Headers` das funções tem de incluir `apikey` e
+  `x-client-info`, senão o SDK falha no preflight.
+- O `?code=` do redirecionamento colide com o do magic link do Supabase.
+  O `openbanking.js` só trata o retorno como sendo do banco quando o `state`
+  corresponde ao guardado em `localStorage`.
+- O nome do banco na Enable Banking é `Activo Bank`, com espaço.
 
 - Fornecedor: **Enable Banking**, modo *Restricted Production* (contas próprias, gratuito).
   A alternativa óbvia — GoCardless Bank Account Data, ex-Nordigen — fechou a novos registos.
