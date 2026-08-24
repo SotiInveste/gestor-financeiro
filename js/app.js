@@ -12,6 +12,7 @@ import { parseStatement, readFile } from "./import.js";
 import { MONTHS, fmt } from "./utils.js";
 import { toast } from "./ui.js";
 import { initTheme } from "./theme.js";
+import { initOpenBanking } from "./openbanking.js";
 
 // ═══ Arranque ═══
 
@@ -69,6 +70,11 @@ async function startApp(session) {
   // Espera que o DOM esteja pintado antes de desenhar os gráficos —
   // evita erros de referência nula nos canvas.
   requestAnimationFrame(() => renderAll());
+
+  // Open banking à parte: se falhar, o resto da app continua a funcionar.
+  initOpenBanking().catch(err => {
+    console.error("Open banking indisponível:", err);
+  });
 }
 
 // ═══ Login ═══
