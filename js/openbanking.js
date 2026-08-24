@@ -206,6 +206,16 @@ export async function syncAccount(account, btn = null) {
   } catch (err) {
     console.error("Erro ao sincronizar:", err);
     toast(err.message || "Não foi possível sincronizar com o banco.", "err");
+
+    // A gravação é feita em blocos: se falhar a meio, alguns já ficaram
+    // no servidor sem estarem no estado local. Recarregar evita que a
+    // tentativa seguinte tente inseri-los outra vez.
+    try {
+      state.transactions = await db.fetchTransactions();
+      document.dispatchEvent(new CustomEvent("data-changed"));
+    } catch (e) {
+      console.error("Não foi possível recarregar os movimentos:", e);
+    }
   } finally {
     setLoading(btn, false);
   }
@@ -252,7 +262,12 @@ async function importTransactions(account, incoming) {
       is_manual: false,
       is_validated: false,
       is_confirmed: matched,
-      source_hash: hash,
+      // O source_hash fica por preencher de propósito. Ele é
+      // data|descrição|montante, sem nada que distinga dois movimentos
+      // legítimos iguais no mesmo dia (dois cafés de 1,50 €), e existe
+      // um índice único sobre ele. Aqui a chave é o entry_reference.
+      // O hash continua a ser usado acima, mas só para filtrar.
+      source_hash: null,
       entry_reference: t.entry_reference,
       bank_account_id: account.id,
     });
