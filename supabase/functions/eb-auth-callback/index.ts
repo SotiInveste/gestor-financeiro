@@ -194,6 +194,10 @@ Deno.serve(async (req: Request) => {
       display_name: [aspspName, a.tail ? `••••${a.tail}` : a.label]
         .filter(Boolean).join(" "),
       consent_expires_at: validUntil,
+      // Uma autorização nova abre uma janela nova de histórico completo
+      // (cerca de 1 hora). Repor a data obriga a sincronização seguinte
+      // a usar outra vez a estratégia mais longa disponível.
+      last_synced_at: null,
       deleted_at: null,
     }));
 
