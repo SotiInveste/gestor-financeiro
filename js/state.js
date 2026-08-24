@@ -75,3 +75,8 @@ export function removeLocal(id) {
 export function existingHashes() {
   return new Set(state.transactions.map(t => t.source_hash).filter(Boolean));
 }
+
+/** Referências dos movimentos já vindos da API do banco. */
+export function existingEntryReferences() {
+  return new Set(state.transactions.map(t => t.entry_reference).filter(Boolean));
+}
