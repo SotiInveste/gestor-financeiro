@@ -182,17 +182,8 @@ Deno.serve(async (req: Request) => {
   const body = await req.json().catch(() => ({}));
   const accountId = body?.account_id;
   const strategy = body?.strategy ?? null;
+  const dateFrom = body?.date_from ?? null;
   const debug = body?.debug === true;
-
-  // "longest" e date_from são intenções contraditórias: pedir o máximo
-  // disponível e, ao mesmo tempo, fixar um início. Observado na prática
-  // (24/08/2026, ActivoBank): com os dois, a API devolve 200 com zero
-  // movimentos em vez de recortar o intervalo — falha silenciosa.
-  let dateFrom = body?.date_from ?? null;
-  if (strategy === "longest" && dateFrom) {
-    console.error("date_from ignorado: incompatível com strategy=longest.");
-    dateFrom = null;
-  }
 
   if (!accountId) return json({ ok: false, error: "Falta o campo account_id." }, 400);
 
@@ -241,9 +232,25 @@ Deno.serve(async (req: Request) => {
   }
 
   // Cabeçalhos PSU: sinalizam que o utilizador está presente, para o
-  // pedido não contar para o limite de recolhas em background.
-  const psuIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  // pedido não contar para o limite de recolhas em background (~4/dia).
+  //
+  // O nome do cabeçalho com o IP do cliente varia com a infraestrutura,
+  // por isso tentam-se vários. Sem IP não há cabeçalhos PSU e todas as
+  // chamadas passam a gastar a quota de background — daí o aviso no log.
+  const psuIp =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip")?.trim() ||
+    req.headers.get("cf-connecting-ip")?.trim() ||
+    null;
   const psuAgent = req.headers.get("user-agent");
+
+  if (!psuIp) {
+    console.error(
+      "Sem IP do cliente — o pedido vai sem cabeçalhos PSU e conta para o " +
+      "limite de recolhas em background. Cabeçalhos recebidos: " +
+      JSON.stringify([...req.headers.keys()]),
+    );
+  }
 
   const ebHeaders: Record<string, string> = {
     Authorization: `Bearer ${jwt}`,
@@ -303,6 +310,18 @@ Deno.serve(async (req: Request) => {
   const ignorados = collected.length - normalized.length;
   if (ignorados > 0) {
     console.error(`${ignorados} movimentos ignorados por falta de entry_reference ou montante inválido.`);
+  }
+
+  // Uma lista vazia não é erro para a API, mas quase nunca é o que se
+  // espera. O caso observado a 24/08/2026 foi o limite de recolhas
+  // esgotado: a Enable Banking responde 200 com [] em vez de 429.
+  if (collected.length === 0) {
+    console.error("A API devolveu zero movimentos.", JSON.stringify({
+      date_from: dateFrom,
+      strategy,
+      psu_headers: Boolean(psuIp),
+      account_uid: account.account_uid,
+    }));
   }
 
   // ─── 4. Marcar a sincronização ───
