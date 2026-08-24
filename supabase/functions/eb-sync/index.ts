@@ -182,8 +182,17 @@ Deno.serve(async (req: Request) => {
   const body = await req.json().catch(() => ({}));
   const accountId = body?.account_id;
   const strategy = body?.strategy ?? null;
-  const dateFrom = body?.date_from ?? null;
   const debug = body?.debug === true;
+
+  // "longest" e date_from são intenções contraditórias: pedir o máximo
+  // disponível e, ao mesmo tempo, fixar um início. Observado na prática
+  // (24/08/2026, ActivoBank): com os dois, a API devolve 200 com zero
+  // movimentos em vez de recortar o intervalo — falha silenciosa.
+  let dateFrom = body?.date_from ?? null;
+  if (strategy === "longest" && dateFrom) {
+    console.error("date_from ignorado: incompatível com strategy=longest.");
+    dateFrom = null;
+  }
 
   if (!accountId) return json({ ok: false, error: "Falta o campo account_id." }, 400);
 
