@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=2">
+  <link rel="stylesheet" href="css/styles.css?v=3">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -120,8 +120,17 @@
       <!-- ═══ MOVIMENTOS ═══ -->
       <section id="page-transactions" class="page hidden">
 
+        <!-- Ligação ao banco (open banking) -->
+        <div class="card bank-section">
+          <div class="bank-head">
+            <h3 class="card-title">Banco ligado</h3>
+            <button id="btn-connect-bank" class="btn btn-outline">+ Ligar banco</button>
+          </div>
+          <div id="bank-list" class="bank-list"></div>
+        </div>
+
         <div class="upload-area">
-          <p class="upload-hint">📥 Importa o extrato Excel do Activo Bank</p>
+          <p class="upload-hint">📥 Ou importa o extrato Excel do Activo Bank</p>
           <label class="btn btn-primary">
             <input type="file" id="file-input" accept=".xlsx,.xls" hidden>
             Escolher ficheiro
