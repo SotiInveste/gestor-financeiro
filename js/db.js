@@ -40,6 +40,34 @@ export async function insertTransactions(rows) {
   return inserted;
 }
 
+/**
+ * Grava movimentos vindos do banco, ignorando os que já existem.
+ *
+ * A deduplicação é feita pela base de dados, no índice único
+ * (bank_account_id, entry_reference), e não por um filtro do lado
+ * do cliente: o estado local não vê movimentos apagados, mas o
+ * índice continua a contá-los. Ver a migração 007.
+ *
+ * Devolve apenas as linhas efetivamente inseridas.
+ */
+export async function upsertBankTransactions(rows) {
+  const withUser = rows.map(r => ({ ...r, user_id: currentUserId }));
+  const inserted = [];
+
+  for (const block of chunk(withUser, 200)) {
+    const { data, error } = await sb
+      .from("fin_transactions")
+      .upsert(block, {
+        onConflict: "bank_account_id,entry_reference",
+        ignoreDuplicates: true,
+      })
+      .select();
+    if (error) throw error;
+    inserted.push(...(data || []));
+  }
+  return inserted;
+}
+
 export async function insertTransaction(row) {
   const { data, error } = await sb
     .from("fin_transactions")
