@@ -105,7 +105,9 @@ export function fallbackCategoryId(amount) {
 }
 
 /** Grupos ordenados, cada um com as suas categorias ordenadas. */
-export function groupedCategories({ includeArchived = false, keepId = null } = {}) {
+export function groupedCategories(
+  { includeArchived = false, keepId = null, includeEmpty = false } = {},
+) {
   const grupos = [...state.categoryGroups]
     .filter(g => includeArchived || !g.archived_at)
     .sort((a, b) => a.sort_order - b.sort_order);
@@ -118,7 +120,12 @@ export function groupedCategories({ includeArchived = false, keepId = null } = {
       // movimento a ser editado, senão desaparecia do próprio seletor.
       .filter(c => includeArchived || !c.archived_at || c.id === keepId)
       .sort((a, b) => a.sort_order - b.sort_order),
-  })).filter(g => g.items.length > 0);
+  }))
+    // Grupos vazios saem dos seletores — um <optgroup> sem opcoes
+    // nao serve para nada. Mas a pagina de gestao precisa de os
+    // mostrar, senao um grupo acabado de criar fica invisivel e
+    // nao ha como lhe mover categorias.
+    .filter(g => includeEmpty || g.items.length > 0);
 }
 
 /** Preenche um <select> com as categorias agrupadas. */
