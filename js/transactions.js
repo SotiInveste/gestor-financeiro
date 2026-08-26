@@ -4,7 +4,7 @@
 
 import {
   state, currentMonthTransactions, monthTotals,
-  updateLocal, removeLocal, addLocal,
+  updateLocal, removeLocal, addLocal, guardarOrdenacao,
 } from "./state.js";
 import { fmt, shortDate, esc, today } from "./utils.js";
 import {
@@ -42,6 +42,7 @@ function ordenarPor(col) {
   } else {
     state.sort = { col, dir: "asc" };
   }
+  guardarOrdenacao();
   renderTransactions();
 }
 
