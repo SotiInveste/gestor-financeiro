@@ -170,7 +170,8 @@ function editNote(div, t) {
       await db.updateTransaction(t.id, { note });
       updateLocal(t.id, { note });
       renderTransactions();
-    } catch {
+    } catch (err) {
+      console.error("Erro ao gravar a nota:", err);
       toast("Erro ao gravar a nota.", "err");
       renderTransactions();
     }
@@ -202,7 +203,8 @@ function editCategory(span, t) {
       renderTransactions();
       document.dispatchEvent(new CustomEvent("data-changed"));
       offerRule(t.description, categoryId);
-    } catch {
+    } catch (err) {
+      console.error("Erro ao gravar a categoria:", err);
       toast("Erro ao gravar a categoria.", "err");
       renderTransactions();
     }
@@ -241,8 +243,9 @@ function offerRule(description, categoryId) {
         const rule = await db.upsertRule(result.keyword, result.categoryId);
         state.rules = state.rules.filter(r => r.id !== rule.id).concat(rule);
         toast("Regra guardada.", "ok");
-      } catch {
-        toast("Não foi possível guardar a regra.", "err");
+      } catch (err) {
+        console.error("Erro ao guardar a regra:", err);
+        toast(err?.message || "Não foi possível guardar a regra.", "err");
       }
     },
   });
@@ -266,7 +269,8 @@ async function toggleValidated(row, btn, t) {
   try {
     await db.updateTransaction(t.id, { is_validated: next });
     updateLocal(t.id, { is_validated: next });
-  } catch {
+  } catch (err) {
+    console.error("Erro ao validar o movimento:", err);
     row.classList.toggle("validated", !next);
     btn.classList.toggle("on", !next);
     toast("Erro ao gravar. Tenta novamente.", "err");
@@ -285,7 +289,8 @@ async function deleteTransaction(t) {
     removeLocal(t.id);
     toast("Movimento arquivado.", "ok");
     document.dispatchEvent(new CustomEvent("data-changed"));
-  } catch {
+  } catch (err) {
+    console.error("Erro:", err);
     toast("Erro ao arquivar.", "err");
   }
 }
@@ -308,7 +313,8 @@ export async function validateAll() {
     list.forEach(t => updateLocal(t.id, { is_validated: true }));
     renderTransactions();
     toast(`${list.length} movimentos validados.`, "ok");
-  } catch {
+  } catch (err) {
+    console.error("Erro:", err);
     toast("Erro ao validar.", "err");
   }
 }
