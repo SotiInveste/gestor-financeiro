@@ -201,6 +201,24 @@ begin
 end $$;
 
 
+-- Resultado em linhas. O RAISE NOTICE acima não é fiável no SQL
+-- Editor do Supabase, que para blocos DO costuma mostrar apenas
+-- "Success. No rows returned".
+
+select
+  (select count(*) from public.fin_category_groups)                   as grupos,
+  (select count(*) from public.fin_categories)                        as categorias,
+  (select count(*) from public.fin_categories where is_system)        as de_sistema,
+  (select count(*) from public.fin_rules
+   where keyword <> upper(trim(keyword)))                             as keywords_por_normalizar,
+  case
+    when (select count(*) from public.fin_category_groups) = 15
+     and (select count(*) from public.fin_categories)      = 59
+    then 'OK — seguir para a 003'
+    else 'NUMEROS INESPERADOS — parar e verificar'
+  end as veredicto;
+
+
 -- ═══════════════════════════════════════════════════════════
 -- Validação (correr à parte)
 -- ═══════════════════════════════════════════════════════════
