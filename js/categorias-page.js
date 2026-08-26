@@ -16,13 +16,17 @@ import { toast, confirmModal, setLoading } from "./ui.js";
 import { esc } from "./utils.js";
 
 let verArquivadas = false;
-let arrastada = null;
+let arrastada = null;       // linha de categoria
+let grupoArrastado = null;  // bloco de grupo
 
 // ═══ Arranque ═══
 
 export function initCategoriesPage() {
   const btnNova = document.getElementById("btn-nova-categoria");
   if (btnNova) btnNova.onclick = criarCategoria;
+
+  const btnGrupo = document.getElementById("btn-novo-grupo");
+  if (btnGrupo) btnGrupo.onclick = criarGrupo;
 
   const chk = document.getElementById("chk-ver-arquivadas");
   if (chk) {
@@ -63,22 +67,47 @@ export function renderCategoriesPage() {
   grupos.forEach(({ group, items }) => {
     const bloco = document.createElement("div");
     bloco.className = "card cat-group";
+    bloco.dataset.groupId = group.id;
 
     const cab = document.createElement("div");
     cab.className = "cat-group-head";
-    cab.innerHTML =
-      `<h3 class="card-title">${esc(`${group.emoji} ${group.name}`.trim())}</h3>` +
-      `<span class="muted">${items.length} categoria${items.length === 1 ? "" : "s"}</span>`;
+
+    // O arrasto do grupo só arranca pela pega. Sem isso colidiria
+    // com o arrasto das linhas que estão lá dentro.
+    const pegaGrupo = document.createElement("span");
+    pegaGrupo.className = "cat-drag grupo";
+    pegaGrupo.textContent = "\u283F";
+    pegaGrupo.title = "Arrastar para reordenar o grupo";
+    pegaGrupo.onmousedown = () => { bloco.draggable = true; };
+    pegaGrupo.onmouseup = () => { bloco.draggable = false; };
+    cab.appendChild(pegaGrupo);
+
+    const titulo = document.createElement("h3");
+    titulo.className = "card-title";
+    titulo.textContent = (group.emoji + " " + group.name).trim();
+    cab.appendChild(titulo);
+
+    const cont = document.createElement("span");
+    cont.className = "muted";
+    cont.textContent = items.length + " categoria" + (items.length === 1 ? "" : "s");
+    cab.appendChild(cont);
+
+    const btnEditarGrupo = document.createElement("button");
+    btnEditarGrupo.className = "btn btn-ghost btn-sm";
+    btnEditarGrupo.textContent = "Editar";
+    btnEditarGrupo.onclick = () => editarGrupo(group, btnEditarGrupo);
+    cab.appendChild(btnEditarGrupo);
 
     // Apagar grupo só faz sentido com o grupo vazio. A verificação
     // real é feita no servidor antes de tentar.
-    const btnGrupo = document.createElement("button");
-    btnGrupo.className = "btn btn-ghost btn-sm";
-    btnGrupo.textContent = "Apagar grupo";
-    btnGrupo.onclick = () => apagarGrupo(group, btnGrupo);
-    cab.appendChild(btnGrupo);
+    const btnApagarGrupo = document.createElement("button");
+    btnApagarGrupo.className = "btn btn-ghost btn-sm perigo";
+    btnApagarGrupo.textContent = "Apagar";
+    btnApagarGrupo.onclick = () => apagarGrupo(group, btnApagarGrupo);
+    cab.appendChild(btnApagarGrupo);
 
     bloco.appendChild(cab);
+    ligarArrastoGrupo(bloco);
 
     const lista = document.createElement("div");
     lista.className = "cat-rows";
@@ -311,6 +340,60 @@ async function apagarCategoria(c, btn) {
   }
 }
 
+async function criarGrupo() {
+  const res = await confirmModal({
+    title: "Novo grupo",
+    text: "Os grupos organizam as categorias nos seletores.",
+    okLabel: "Criar",
+    extraHTML:
+      `<label>Emoji</label>
+       <input type="text" data-field="emoji" placeholder="Ex: \u{1F393}" maxlength="4">
+       <label>Nome</label>
+       <input type="text" data-field="nome" placeholder="Ex: Educa\u00e7\u00e3o">`,
+  });
+  if (!res || !res.nome?.trim()) return;
+
+  try {
+    await db.insertGroup({ name: res.nome.trim(), emoji: res.emoji || "" });
+    await recarregar();
+    toast("Grupo criado.", "ok");
+  } catch (err) {
+    console.error("Erro ao criar grupo:", err);
+    toast(mensagemErroGrupo(err, res.nome.trim()), "err");
+  }
+}
+
+async function editarGrupo(g, btn) {
+  const res = await confirmModal({
+    title: "Editar grupo",
+    text: "Renomear \u00e9 seguro: as categorias apontam para o id do grupo, n\u00e3o para o nome.",
+    okLabel: "Guardar",
+    extraHTML:
+      `<label>Emoji</label>
+       <input type="text" data-field="emoji" value="${esc(g.emoji || "")}" maxlength="4">
+       <label>Nome</label>
+       <input type="text" data-field="nome" value="${esc(g.name)}">`,
+  });
+  if (!res || !res.nome?.trim()) return;
+
+  const patch = {};
+  if (res.nome.trim() !== g.name) patch.name = res.nome.trim();
+  if ((res.emoji || "") !== (g.emoji || "")) patch.emoji = res.emoji || "";
+  if (!Object.keys(patch).length) return;
+
+  setLoading(btn, true, "A gravar\u2026");
+  try {
+    await db.updateGroup(g.id, patch);
+    await recarregar();
+    toast("Grupo atualizado.", "ok");
+  } catch (err) {
+    console.error("Erro ao atualizar grupo:", err);
+    toast(mensagemErroGrupo(err, res.nome.trim()), "err");
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
 async function apagarGrupo(g, btn) {
   setLoading(btn, true, "…");
   try {
@@ -346,6 +429,8 @@ async function apagarGrupo(g, btn) {
 
 function ligarArrasto(row) {
   row.ondragstart = e => {
+    // Sem isto o bloco do grupo tamb\u00e9m reagia ao arrasto da linha.
+    e.stopPropagation();
     arrastada = row;
     row.classList.add("a-arrastar");
     e.dataTransfer.effectAllowed = "move";
@@ -373,6 +458,61 @@ function ligarArrasto(row) {
     e.preventDefault();
     await gravarOrdem(row.parentNode);
   };
+}
+
+function ligarArrastoGrupo(bloco) {
+  bloco.ondragstart = e => {
+    if (!bloco.draggable) return;
+    e.stopPropagation();
+    grupoArrastado = bloco;
+    bloco.classList.add("a-arrastar");
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  bloco.ondragend = () => {
+    bloco.classList.remove("a-arrastar");
+    bloco.draggable = false;
+    grupoArrastado = null;
+  };
+
+  bloco.ondragover = e => {
+    if (!grupoArrastado || grupoArrastado === bloco) return;
+    e.preventDefault();
+    const meio = bloco.getBoundingClientRect().top + bloco.offsetHeight / 2;
+    bloco.parentNode.insertBefore(
+      grupoArrastado,
+      e.clientY < meio ? bloco : bloco.nextSibling,
+    );
+  };
+
+  bloco.ondrop = async e => {
+    if (!grupoArrastado) return;
+    e.preventDefault();
+    await gravarOrdemGrupos(bloco.parentNode);
+  };
+}
+
+async function gravarOrdemGrupos(lista) {
+  const items = [...lista.querySelectorAll(".cat-group")]
+    .map((el, i) => ({ id: el.dataset.groupId, sort_order: i + 1 }));
+
+  const mudou = items.filter(({ id, sort_order }) =>
+    state.categoryGroups.find(g => g.id === id)?.sort_order !== sort_order
+  );
+  if (!mudou.length) return;
+
+  try {
+    await db.updateGroupOrder(mudou);
+    mudou.forEach(({ id, sort_order }) => {
+      const g = state.categoryGroups.find(x => x.id === id);
+      if (g) g.sort_order = sort_order;
+    });
+    toast("Ordem dos grupos guardada.", "ok");
+  } catch (err) {
+    console.error("Erro ao gravar a ordem dos grupos:", err);
+    toast("N\u00e3o foi poss\u00edvel guardar a ordem.", "err");
+    renderCategoriesPage();
+  }
 }
 
 async function gravarOrdem(lista) {
@@ -408,6 +548,11 @@ function opcoesGrupo(selectedId) {
       `<option value="${g.id}"${g.id === selectedId ? " selected" : ""}>` +
       `${esc(`${g.emoji} ${g.name}`.trim())}</option>`
     ).join("");
+}
+
+function mensagemErroGrupo(err, nome) {
+  if (err?.code === "23505") return `J\u00e1 existe um grupo chamado \u00ab${nome}\u00bb.`;
+  return err?.message || "N\u00e3o foi poss\u00edvel gravar.";
 }
 
 /** Traduz o erro do Postgres em algo legível. */
