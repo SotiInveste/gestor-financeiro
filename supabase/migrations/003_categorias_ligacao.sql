@@ -45,25 +45,19 @@ where c.user_id = r.user_id
 
 -- ═══ 3. Relatório do que sobrou ═══
 --
--- Sai como NOTICE no separador de mensagens. As consultas no fim
--- deste ficheiro dão o detalhe.
+-- Devolvido como linhas, não como RAISE NOTICE: o SQL Editor do
+-- Supabase não mostra as mensagens de forma fiável, e para um bloco
+-- DO limita-se a dizer "Success. No rows returned".
 
-do $$
-declare
-  orfaos_t int;
-  orfaos_r int;
-begin
-  select count(*) into orfaos_t from public.fin_transactions where category_id is null;
-  select count(*) into orfaos_r from public.fin_rules        where category_id is null;
-
-  if orfaos_t = 0 and orfaos_r = 0 then
-    raise notice 'Tudo ligado. Pode correr a 004.';
-  else
-    raise notice 'ÓRFÃOS — movimentos: % | regras: %. NÃO correr a 004 ainda.',
-      orfaos_t, orfaos_r;
-    raise notice 'Correr as consultas de diagnóstico no fim deste ficheiro.';
-  end if;
-end $$;
+select
+  (select count(*) from public.fin_transactions where category_id is null) as movimentos_orfaos,
+  (select count(*) from public.fin_rules        where category_id is null) as regras_orfas,
+  case
+    when (select count(*) from public.fin_transactions where category_id is null) = 0
+     and (select count(*) from public.fin_rules        where category_id is null) = 0
+    then 'TUDO LIGADO — pode correr a 004'
+    else 'HA ORFAOS — nao correr a 004; ver diagnostico no fim do ficheiro'
+  end as veredicto;
 
 
 -- ═══════════════════════════════════════════════════════════
