@@ -2,7 +2,10 @@
 // Página de Movimentos — tabela, edição inline, entrada manual
 // ═══════════════════════════════════════════════════════════
 
-import { state, currentMonthTransactions, monthTotals, updateLocal, removeLocal, addLocal } from "./state.js";
+import {
+  state, currentMonthTransactions, monthTotals,
+  updateLocal, removeLocal, addLocal,
+} from "./state.js";
 import { fmt, shortDate, esc, today } from "./utils.js";
 import {
   fillCategorySelect, suggestKeyword, categoryName,
@@ -12,6 +15,46 @@ import * as db from "./db.js";
 import { toast, confirmModal, setLoading } from "./ui.js";
 
 let manualType = "expense";
+
+// ═══ Ordenação da tabela ═══
+
+/**
+ * Liga os cabeçalhos. Chamado uma vez no arranque — o <thead> é
+ * estático, só o indicador é repintado a cada render.
+ */
+export function initTableSorting() {
+  document.querySelectorAll("#table-wrap th.sortable").forEach(th => {
+    const aplicar = () => ordenarPor(th.dataset.sort);
+    th.onclick = aplicar;
+    th.onkeydown = e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); aplicar(); }
+    };
+  });
+  atualizarIndicadores();
+}
+
+function ordenarPor(col) {
+  if (!col) return;
+  // Clicar na coluna já ativa inverte o sentido; noutra coluna
+  // começa sempre por crescente.
+  if (state.sort.col === col) {
+    state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
+  } else {
+    state.sort = { col, dir: "asc" };
+  }
+  renderTransactions();
+}
+
+function atualizarIndicadores() {
+  document.querySelectorAll("#table-wrap th.sortable").forEach(th => {
+    const ativa = th.dataset.sort === state.sort.col;
+    const ind = th.querySelector(".sort-ind");
+    th.classList.toggle("ordenada", ativa);
+    th.setAttribute("aria-sort",
+      ativa ? (state.sort.dir === "asc" ? "ascending" : "descending") : "none");
+    if (ind) ind.textContent = ativa ? (state.sort.dir === "asc" ? "\u25B2" : "\u25BC") : "";
+  });
+}
 
 export function renderTransactions() {
   const list = currentMonthTransactions();
@@ -25,11 +68,17 @@ export function renderTransactions() {
   wrap.classList.toggle("hidden", isEmpty);
   empty.classList.toggle("hidden", !isEmpty);
 
-  if (isEmpty) { body.innerHTML = ""; foot.innerHTML = ""; return; }
+  if (isEmpty) {
+    body.innerHTML = "";
+    foot.innerHTML = "";
+    atualizarIndicadores();
+    return;
+  }
 
   body.innerHTML = list.map(t => rowHTML(t)).join("");
   foot.innerHTML = footHTML(monthTotals(list));
   bindRowEvents();
+  atualizarIndicadores();
 }
 
 function rowHTML(t) {
