@@ -223,6 +223,51 @@ export async function groupUsage(id) {
   return count || 0;
 }
 
+/** Cria um grupo. O código é atribuído como max(code) + 1. */
+export async function insertGroup({ name, emoji = "" }) {
+  const { data: existentes, error: errMax } = await sb
+    .from("fin_category_groups")
+    .select("code, sort_order")
+    .order("code", { ascending: false });
+  if (errMax) throw errMax;
+
+  const nextCode = (Number(existentes?.[0]?.code) || 10) + 1;
+  const nextOrder = Math.max(0, ...(existentes || []).map(g => Number(g.sort_order) || 0)) + 1;
+
+  const { data, error } = await sb
+    .from("fin_category_groups")
+    .insert({
+      user_id: currentUserId,
+      name: name.trim(),
+      emoji: emoji.trim(),
+      code: nextCode,
+      sort_order: nextOrder,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateGroup(id, patch) {
+  const { data, error } = await sb
+    .from("fin_category_groups")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Persiste a ordem dos grupos. Mesmo motivo do updateCategoryOrder. */
+export async function updateGroupOrder(items) {
+  await Promise.all(items.map(({ id, sort_order }) =>
+    sb.from("fin_category_groups").update({ sort_order }).eq("id", id)
+      .then(({ error }) => { if (error) throw error; })
+  ));
+}
+
 export async function deleteGroup(id) {
   const { error } = await sb.from("fin_category_groups").delete().eq("id", id);
   if (error) throw error;
