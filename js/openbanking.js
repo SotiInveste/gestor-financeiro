@@ -225,10 +225,16 @@ export async function syncAccount(account, btn = null) {
 /**
  * Mapeia, categoriza e grava os movimentos vindos do banco.
  *
- * Deduplicação em duas frentes: por entry_reference (movimentos já
- * vindos da API) e por source_hash (os mesmos movimentos já importados
- * do Excel). O hash não é infalível — a descrição da API nem sempre é
- * igual à do extrato — mas evita a maior parte das repetições.
+ * Deduplicação em duas frentes:
+ *
+ *   · entry_reference — garantida pela base de dados, no upsert. O
+ *     filtro local que também o verifica serve só para não enviar
+ *     linhas conhecidas pela rede; a autoridade é o índice único,
+ *     porque o estado local não vê movimentos apagados.
+ *
+ *   · source_hash — apanha os mesmos movimentos já importados do
+ *     Excel. Não é infalível, porque a descrição da API nem sempre é
+ *     igual à do extrato, mas evita a maior parte das repetições.
  */
 async function importTransactions(account, incoming) {
   const knownRefs = existingEntryReferences();
@@ -276,7 +282,7 @@ async function importTransactions(account, incoming) {
 
   if (!rows.length) return { inserted: 0, skipped, autoCategorized: 0 };
 
-  const inserted = await db.insertTransactions(rows);
+  const inserted = await db.upsertBankTransactions(rows);
   addLocal(inserted);
 
   return {
