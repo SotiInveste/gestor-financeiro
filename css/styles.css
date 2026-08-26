@@ -529,3 +529,34 @@ body {
   border-color: var(--blue);
   background: var(--tint-blue-bg);
 }
+
+/* ═══ Cabeçalhos ordenáveis ═══ */
+.table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.table th.sortable:hover { color: var(--text); }
+.table th.sortable:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+.table th.sortable.ordenada { color: var(--blue); }
+
+.sort-ind {
+  display: inline-block;
+  width: 1em;
+  margin-left: 3px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+/* Separador das secções de entrada de dados */
+.seccao-titulo {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin: 28px 0 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
