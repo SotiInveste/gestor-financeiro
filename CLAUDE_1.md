@@ -81,6 +81,30 @@ Data Lanc. | Data Valor | Descrição | Valor | Saldo
 Valores negativos são despesas. O parser deteta o cabeçalho dinamicamente
 em vez de assumir posições fixas — manter esse comportamento.
 
+## Unicidade: a autoridade é a base de dados
+
+Erro cometido tres vezes em 26/08/2026, sempre com o mesmo formato:
+usar o estado local do cliente para garantir uma unicidade que so o
+indice pode garantir.
+
+1. `source_hash` escrito nas linhas da API — o hash nao distingue dois
+   movimentos legitimos iguais no mesmo dia.
+2. Filtro de `entry_reference` sobre `state.transactions` — que so tem
+   os movimentos **nao apagados**, enquanto o indice conta tambem os
+   apagados por soft delete.
+3. Filtro de `source_hash` com o mesmo defeito.
+
+**Regra:** para deduplicar a escrita, usar `upsert` com
+`ignoreDuplicates` sobre um indice unico. Um filtro no cliente serve
+para poupar trafego, nunca como garantia.
+
+**Cuidado com indices parciais:** um indice com `WHERE` nao pode ser
+alvo de `ON CONFLICT` — o Postgres nao o consegue inferir a partir das
+colunas. Se for preciso fazer upsert, o indice tem de ser total. Os
+nulos sao distintos entre si por omissao, portanto um indice total
+sobre `(bank_account_id, entry_reference)` nao interfere com as linhas
+de Excel, que tem ambos nulos. Ver a migracao 007.
+
 ## RLS — lição de 26/08/2026
 
 A política `own rules` do `fin_rules` existia mas **sem expressão**: `qual` e
