@@ -6,27 +6,35 @@
 // ═══════════════════════════════════════════════════════════
 
 import { parseExcelDate, makeHash } from "./utils.js";
-import { DEFAULT_RULES } from "./categories.js";
+import { DEFAULT_RULES, categoryByName, fallbackCategoryId } from "./categories.js";
 
-/** Aplica as regras do utilizador e, em último recurso, as regras base. */
+/**
+ * Aplica as regras do utilizador e, em último recurso, as regras base.
+ * Devolve o id da categoria — as regras base guardam nomes, que são
+ * resolvidos aqui contra o estado carregado do Supabase.
+ */
 export function categorize(description, userRules) {
   const upper = String(description || "").toUpperCase();
 
   // 1) Regras do utilizador (prioridade)
   for (const rule of userRules) {
     if (upper.includes(String(rule.keyword).toUpperCase())) {
-      return { category: rule.category, matched: true };
+      if (rule.category_id) return { categoryId: rule.category_id, matched: true };
     }
   }
 
   // 2) Regras base
-  for (const [keyword, category] of DEFAULT_RULES) {
+  for (const [keyword, name] of DEFAULT_RULES) {
     if (upper.includes(keyword.toUpperCase())) {
-      return { category, matched: true };
+      const cat = categoryByName(name);
+      // Uma regra base pode apontar para uma categoria que o
+      // utilizador entretanto renomeou ou arquivou. Nesse caso
+      // segue-se para a regra seguinte em vez de falhar.
+      if (cat) return { categoryId: cat.id, matched: true };
     }
   }
 
-  return { category: null, matched: false };
+  return { categoryId: null, matched: false };
 }
 
 /** Lê o ficheiro e devolve as linhas prontas a inserir. */
@@ -99,14 +107,14 @@ export function parseStatement(arrayBuffer, userRules, knownHashes) {
     }
     seenInFile.add(hash);
 
-    const { category, matched } = categorize(description, userRules);
+    const { categoryId, matched } = categorize(description, userRules);
 
     parsed.push({
       movement_date: finalMovement,
       value_date: finalValue,
       description,
       note: "",
-      category: category || (amount > 0 ? "Valores Creditados" : "Outros"),
+      category_id: categoryId || fallbackCategoryId(amount),
       amount: Number(amount.toFixed(2)),
       is_manual: false,
       is_validated: false,
