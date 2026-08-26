@@ -199,6 +199,35 @@ export async function deleteCategory(id) {
   if (error) throw error;
 }
 
+/**
+ * Persiste a ordem de várias categorias.
+ *
+ * Updates individuais em vez de um upsert: o upsert do PostgREST
+ * envia a linha inteira e falharia nas colunas obrigatórias que
+ * aqui não são enviadas.
+ */
+export async function updateCategoryOrder(items) {
+  await Promise.all(items.map(({ id, sort_order }) =>
+    sb.from("fin_categories").update({ sort_order }).eq("id", id)
+      .then(({ error }) => { if (error) throw error; })
+  ));
+}
+
+/** Quantas categorias tem um grupo (inclui arquivadas). */
+export async function groupUsage(id) {
+  const { count, error } = await sb
+    .from("fin_categories")
+    .select("id", { count: "exact", head: true })
+    .eq("group_id", id);
+  if (error) throw error;
+  return count || 0;
+}
+
+export async function deleteGroup(id) {
+  const { error } = await sb.from("fin_category_groups").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ─── Contas bancárias ligadas (open banking) ───
 
 /** Carrega as contas ligadas que não foram desligadas. */
