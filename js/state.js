@@ -12,16 +12,42 @@ export const state = {
   rules: [],
   categories: [],
   categoryGroups: [],
+  // Coluna e sentido da ordenacao da tabela de movimentos.
+  sort: { col: "value_date", dir: "asc" },
   month: new Date().getMonth(),
   year: new Date().getFullYear(),
   page: "dashboard",
 };
 
+const texto = (a, b) =>
+  String(a || "").localeCompare(String(b || ""), "pt", { sensitivity: "base" });
+
+/** Comparadores por coluna. Todos crescentes; o sentido aplica-se depois. */
+const COMPARADORES = {
+  movement_date: (a, b) => texto(a.movement_date, b.movement_date),
+  value_date:    (a, b) => texto(a.value_date, b.value_date),
+  description:   (a, b) => texto(a.description, b.description),
+  note:          (a, b) => texto(a.note, b.note),
+  category:      (a, b) => texto(catName(a.category_id), catName(b.category_id)),
+  amount:        (a, b) => Number(a.amount) - Number(b.amount),
+};
+
+export const COLUNAS_ORDENAVEIS = Object.keys(COMPARADORES);
+
 /** Movimentos do período selecionado (filtrados pela DATA VALOR). */
 export function currentMonthTransactions() {
+  const { col, dir } = state.sort;
+  const cmp = COMPARADORES[col] || COMPARADORES.value_date;
+  const sinal = dir === "desc" ? -1 : 1;
+
   return state.transactions
     .filter(t => monthOf(t.value_date) === state.month && yearOf(t.value_date) === state.year)
-    .sort((a, b) => a.value_date.localeCompare(b.value_date));
+    .sort((a, b) => {
+      const r = cmp(a, b) * sinal;
+      // Desempate sempre pela data valor, no mesmo sentido: linhas
+      // equivalentes deixam de trocar de lugar entre repinturas.
+      return r !== 0 ? r : COMPARADORES.value_date(a, b);
+    });
 }
 
 /** Totais do período selecionado. */
