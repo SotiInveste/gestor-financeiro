@@ -6,7 +6,9 @@ import { getSession, sendMagicLink, signOut, onAuthChange } from "./auth.js";
 import * as db from "./db.js";
 import { state, currentMonthTransactions, monthTotals, addLocal, existingHashes } from "./state.js";
 import { renderDashboard } from "./dashboard.js";
-import { renderTransactions, initManualForm, validateAll } from "./transactions.js";
+import {
+  renderTransactions, initManualForm, validateAll, initTableSorting,
+} from "./transactions.js";
 import { exportToExcel } from "./export.js";
 import { parseStatement, readFile } from "./import.js";
 import { MONTHS, fmt } from "./utils.js";
@@ -71,6 +73,7 @@ async function startApp(session) {
 
   buildPeriodSelectors();
   initManualForm();
+  initTableSorting();
   initCategoriesPage();
   initTheme();
   bindEvents();
