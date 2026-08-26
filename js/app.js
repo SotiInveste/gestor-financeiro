@@ -51,12 +51,18 @@ function showLogin(message) {
 async function startApp(session) {
   db.setUserId(session.user.id);
 
-  const [transactions, rules] = await Promise.all([
+  // As categorias têm de estar carregadas antes do primeiro render:
+  // a tabela e os gráficos resolvem nomes a partir de category_id.
+  const [transactions, rules, categories, categoryGroups] = await Promise.all([
     db.fetchTransactions(),
     db.fetchRules(),
+    db.fetchCategories(),
+    db.fetchCategoryGroups(),
   ]);
   state.transactions = transactions;
   state.rules = rules;
+  state.categories = categories;
+  state.categoryGroups = categoryGroups;
 
   document.getElementById("boot").classList.add("hidden");
   document.getElementById("login-screen").classList.add("hidden");
