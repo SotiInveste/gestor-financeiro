@@ -4,7 +4,10 @@
 
 import { state, currentMonthTransactions, monthTotals, updateLocal, removeLocal, addLocal } from "./state.js";
 import { fmt, shortDate, esc, today } from "./utils.js";
-import { fillCategorySelect, suggestKeyword, CATEGORY_GROUPS } from "./categories.js";
+import {
+  fillCategorySelect, suggestKeyword, categoryName,
+  groupedCategories, categoryByName,
+} from "./categories.js";
 import * as db from "./db.js";
 import { toast, confirmModal, setLoading } from "./ui.js";
 
@@ -57,7 +60,7 @@ function rowHTML(t) {
     </td>
     <td>
       <span class="cat-badge${pending}" data-action="edit-category" title="Clica para editar">
-        ${esc(t.category)}
+        ${esc(categoryName(t.category_id))}
       </span>
     </td>
     <td class="cell-amount ${amountColor}">${fmt(t.amount)}</td>
@@ -183,7 +186,7 @@ function editNote(div, t) {
 function editCategory(span, t) {
   const select = document.createElement("select");
   select.className = "inline";
-  fillCategorySelect(select, t.category);
+  fillCategorySelect(select, t.category_id);
   span.replaceWith(select);
   select.focus();
 
@@ -191,14 +194,14 @@ function editCategory(span, t) {
   const save = async () => {
     if (done) return;
     done = true;
-    const category = select.value;
-    if (category === t.category) return renderTransactions();
+    const categoryId = select.value;
+    if (categoryId === t.category_id) return renderTransactions();
     try {
-      await db.updateTransaction(t.id, { category, is_confirmed: true });
-      updateLocal(t.id, { category, is_confirmed: true });
+      await db.updateTransaction(t.id, { category_id: categoryId, is_confirmed: true });
+      updateLocal(t.id, { category_id: categoryId, is_confirmed: true });
       renderTransactions();
       document.dispatchEvent(new CustomEvent("data-changed"));
-      offerRule(t.description, category);
+      offerRule(t.description, categoryId);
     } catch {
       toast("Erro ao gravar a categoria.", "err");
       renderTransactions();
@@ -211,16 +214,16 @@ function editCategory(span, t) {
 }
 
 /** Depois de corrigir uma categoria, propõe guardar a regra. */
-function offerRule(description, category) {
+function offerRule(description, categoryId) {
   const keyword = suggestKeyword(description);
   if (!keyword || keyword.length < 3) return;
 
   const already = state.rules.some(r =>
-    String(r.keyword).toUpperCase() === keyword.toUpperCase() && r.category === category
+    String(r.keyword).toUpperCase() === keyword.toUpperCase() && r.category_id === categoryId
   );
   if (already) return;
 
-  toast(`Categorizar sempre "${esc(keyword)}" como ${esc(category)}?`, "", {
+  toast(`Categorizar sempre "${esc(keyword)}" como ${esc(categoryName(categoryId))}?`, "", {
     label: "Criar regra",
     onClick: async () => {
       const result = await confirmModal({
@@ -231,11 +234,11 @@ function offerRule(description, category) {
           <label>Palavra-chave</label>
           <input type="text" data-field="keyword" value="${esc(keyword)}">
           <label>Categoria</label>
-          <select data-field="category">${categoryOptions(category)}</select>`,
+          <select data-field="categoryId">${categoryOptions(categoryId)}</select>`,
       });
       if (!result) return;
       try {
-        const rule = await db.upsertRule(result.keyword, result.category);
+        const rule = await db.upsertRule(result.keyword, result.categoryId);
         state.rules = state.rules.filter(r => r.id !== rule.id).concat(rule);
         toast("Regra guardada.", "ok");
       } catch {
@@ -245,10 +248,12 @@ function offerRule(description, category) {
   });
 }
 
-function categoryOptions(selected) {
-  return CATEGORY_GROUPS.map(({ group, items }) =>
-    `<optgroup label="${group}">` +
-    items.map(c => `<option value="${c}"${c === selected ? " selected" : ""}>${c}</option>`).join("") +
+function categoryOptions(selectedId) {
+  return groupedCategories({ keepId: selectedId }).map(({ group, items }) =>
+    `<optgroup label="${esc(`${group.emoji} ${group.name}`.trim())}">` +
+    items.map(c =>
+      `<option value="${c.id}"${c.id === selectedId ? " selected" : ""}>${esc(c.name)}</option>`
+    ).join("") +
     `</optgroup>`
   ).join("");
 }
@@ -315,7 +320,7 @@ export function initManualForm() {
   const toggleBtn = document.getElementById("btn-toggle-manual");
   const categorySelect = document.getElementById("m-category");
 
-  fillCategorySelect(categorySelect, "Poupança Casa");
+  fillCategorySelect(categorySelect, categoryByName("Poupança Casa")?.id || null);
   resetManualForm();
 
   toggleBtn.onclick = () => {
@@ -356,7 +361,7 @@ async function saveManual() {
   const rawAmount = parseFloat(document.getElementById("m-amount").value);
   const movementDate = document.getElementById("m-movement-date").value;
   const valueDate = document.getElementById("m-value-date").value || movementDate;
-  const category = document.getElementById("m-category").value;
+  const categoryId = document.getElementById("m-category").value;
 
   if (!description || !Number.isFinite(rawAmount) || rawAmount === 0) {
     return toast("Preenche a descrição e um valor válido.", "err");
@@ -372,7 +377,7 @@ async function saveManual() {
       value_date: valueDate,
       description,
       note: "",
-      category,
+      category_id: categoryId,
       amount: Number(amount.toFixed(2)),
       is_manual: true,
       is_validated: false,
