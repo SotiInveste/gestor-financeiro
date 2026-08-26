@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=4">
+  <link rel="stylesheet" href="css/styles.css?v=5">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -202,7 +202,10 @@
             <input type="checkbox" id="chk-ver-arquivadas">
             Ver arquivadas
           </label>
-          <button id="btn-nova-categoria" class="btn btn-primary">+ Nova categoria</button>
+          <span class="cat-toolbar-botoes">
+            <button id="btn-novo-grupo" class="btn btn-outline">+ Novo grupo</button>
+            <button id="btn-nova-categoria" class="btn btn-primary">+ Nova categoria</button>
+          </span>
         </div>
         <div id="categorias-lista"></div>
       </section>
