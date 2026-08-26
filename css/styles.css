@@ -489,3 +489,43 @@ body {
   .cat-group-head { flex-wrap: wrap; }
   .cat-group-head .card-title { flex-basis: calc(100% - 30px); }
 }
+
+/* Seletor de emoji (modal de grupos) */
+.emoji-campo {
+  width: 100%;
+  font-size: 18px;
+  text-align: center;
+  padding: 8px;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.emoji-grelha {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 4px;
+  margin-top: 10px;
+  max-height: 168px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.emoji-op {
+  font-size: 19px;
+  line-height: 1;
+  padding: 7px 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+.emoji-op:hover { background: var(--hover); }
+.emoji-op.ativo {
+  border-color: var(--blue);
+  background: var(--tint-blue-bg);
+}
