@@ -13,6 +13,7 @@ import { MONTHS, fmt } from "./utils.js";
 import { toast } from "./ui.js";
 import { initTheme } from "./theme.js";
 import { initOpenBanking } from "./openbanking.js";
+import { initCategoriesPage, renderCategoriesPage } from "./categorias-page.js";
 
 // ═══ Arranque ═══
 
@@ -51,12 +52,18 @@ function showLogin(message) {
 async function startApp(session) {
   db.setUserId(session.user.id);
 
-  const [transactions, rules] = await Promise.all([
+  // As categorias têm de estar carregadas antes do primeiro render:
+  // a tabela e os gráficos resolvem nomes a partir de category_id.
+  const [transactions, rules, categories, categoryGroups] = await Promise.all([
     db.fetchTransactions(),
     db.fetchRules(),
+    db.fetchCategories(),
+    db.fetchCategoryGroups(),
   ]);
   state.transactions = transactions;
   state.rules = rules;
+  state.categories = categories;
+  state.categoryGroups = categoryGroups;
 
   document.getElementById("boot").classList.add("hidden");
   document.getElementById("login-screen").classList.add("hidden");
@@ -64,6 +71,7 @@ async function startApp(session) {
 
   buildPeriodSelectors();
   initManualForm();
+  initCategoriesPage();
   initTheme();
   bindEvents();
 
@@ -149,6 +157,11 @@ function switchPage(page) {
     b.classList.toggle("active", b.dataset.page === page));
   document.getElementById("page-dashboard").classList.toggle("hidden", page !== "dashboard");
   document.getElementById("page-transactions").classList.toggle("hidden", page !== "transactions");
+  document.getElementById("page-categorias").classList.toggle("hidden", page !== "categorias");
+
+  // O seletor de período não se aplica à gestão de categorias.
+  const periodo = document.querySelector(".period-bar");
+  if (periodo) periodo.classList.toggle("hidden", page === "categorias");
   renderAll();
 }
 
@@ -171,6 +184,7 @@ function renderAll() {
   badge.classList.toggle("hidden", pending === 0);
 
   if (state.page === "dashboard") renderDashboard();
+  else if (state.page === "categorias") renderCategoriesPage();
   else renderTransactions();
 }
 

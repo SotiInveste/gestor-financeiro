@@ -13,6 +13,7 @@ import { sb } from "./auth.js";
 import * as db from "./db.js";
 import { state, addLocal, existingHashes, existingEntryReferences } from "./state.js";
 import { categorize } from "./import.js";
+import { fallbackCategoryId } from "./categories.js";
 import { makeHash } from "./utils.js";
 import { toast, confirmModal, setLoading } from "./ui.js";
 
@@ -250,14 +251,14 @@ async function importTransactions(account, incoming) {
 
     seen.add(t.entry_reference);
 
-    const { category, matched } = categorize(t.description, state.rules);
+    const { categoryId, matched } = categorize(t.description, state.rules);
 
     rows.push({
       movement_date: t.movement_date || t.value_date,
       value_date: t.value_date,
       description: t.description,
       note: "",
-      category: category || (t.amount > 0 ? "Valores Creditados" : "Outros"),
+      category_id: categoryId || fallbackCategoryId(t.amount),
       amount: t.amount,
       is_manual: false,
       is_validated: false,

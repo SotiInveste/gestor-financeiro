@@ -22,7 +22,7 @@ js/
   auth.js               # cliente Supabase + magic link
   db.js                 # leituras/escritas
   state.js              # estado partilhado e cálculos derivados
-  categories.js         # categorias agrupadas + regras base
+  categories.js         # consultas sobre state.categories + DEFAULT_RULES
   import.js             # parser do extrato Activo Bank
   transactions.js       # tabela e edição inline
   dashboard.js          # gráficos
@@ -31,6 +31,7 @@ js/
   ui.js                 # toasts, modais, spinners
   utils.js              # datas, formatação, hashes
   openbanking.js        # ligação ao banco, sincronização, secção "Banco ligado"
+  categorias-page.js    # página de gestão de categorias
   app.js                # arranque e navegação
 supabase/
   migrations/           # SQL aditivo, corrido à mão no SQL Editor
@@ -50,6 +51,15 @@ Supabase. As migrações em `supabase/migrations/` são aditivas e idempotentes.
 6. **Ao alterar `css/styles.css`, incrementar o `?v=N` no link do `index.html`.** O GitHub Pages guarda CSS em cache de forma agressiva.
 7. **Eliminar é sempre soft delete** (`deleted_at`), nunca `DELETE`.
 8. **O mês de um movimento é determinado pela `value_date`**, não pela `movement_date`. Vale para dashboard, gráficos, exportação e filtros.
+9. **As categorias são dados, não constantes.** Vivem em `fin_categories` e
+   `fin_category_groups`; `js/categories.js` só as consulta a partir de
+   `state.categories`. Nunca voltar a pôr listas de categorias no código.
+10. **Movimentos e regras apontam para `category_id`, nunca para o nome.**
+    É isso que permite renomear uma categoria sem tocar no histórico. A coluna
+    `category_legacy` é resíduo da migração — não escrever lá.
+11. **Nunca criar índices únicos sobre expressões** (`upper(x)`) se o código faz
+    upsert por colunas. O `ON CONFLICT` não consegue associá-los e o upsert
+    falha em silêncio. Normalizar no código e indexar a coluna simples.
 
 ## Convenções de código
 
@@ -80,6 +90,26 @@ Duas camadas, por esta ordem:
 
 Quando o utilizador corrige uma categoria manualmente, a app propõe guardar
 a regra. É esta aprendizagem que reduz o trabalho mensal — não a remover.
+
+## Categorias
+
+Migradas de constantes para tabelas em 26/08/2026 (migrações 002 a 004).
+
+- `fin_category_groups` — 15 grupos, com `emoji` e `sort_order`.
+- `fin_categories` — 59 categorias, com `kind` (`income`/`expense`),
+  `sort_order`, `archived_at` e `is_system`.
+- **`code`** — inteiro curto e estável, **nunca reutilizado**. É a chave que o
+  bot do Telegram usa no `callback_data`, para criar ou reordenar categorias
+  não deslocar mensagens já enviadas.
+- **`is_system`** — só «Outros». Destino por omissão do importador; não pode
+  ser apagada nem arquivada.
+- **Arquivar, não apagar.** Arquivar tira dos seletores e mantém o histórico.
+  Apagar só é oferecido quando nada aponta para a categoria.
+- O seletor mostra sempre a categoria atual do movimento a ser editado, mesmo
+  arquivada — senão desapareceria do próprio seletor.
+
+**Por fazer (Fase 6):** largar `category_legacy` de `fin_transactions` e
+`fin_rules`, mas só depois de um fecho de mês completo sem incidentes.
 
 ## Deduplicação
 

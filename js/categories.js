@@ -1,34 +1,19 @@
 // ═══════════════════════════════════════════════════════════
-// Categorias agrupadas + regras de categorização por defeito
+// Categorias — leitura do estado + regras base
+//
+// As categorias deixaram de ser constantes: vivem em
+// fin_categories / fin_category_groups e são carregadas para
+// state.categories no arranque (ver app.js).
+//
+// Aqui ficam só as consultas sobre esse estado. As escritas
+// estão em db.js.
 // ═══════════════════════════════════════════════════════════
 
-export const CATEGORY_GROUPS = [
-  { group: "💰 Receitas",         items: ["Salário", "Outras Receitas", "Valores Creditados", "Devolução Empregador 1", "Devolução Empregador 2"] },
-  { group: "🏠 Habitação",        items: ["Renda Habitação", "Eletricidade", "Água", "Gás", "TV+NET+VOZ", "Casa"] },
-  { group: "🚗 Carro",            items: ["Combustível", "Via Verde", "Mecânico", "Seguro Automóvel", "IUC", "Inspeção Automóvel", "Estacionamento", "Outros Carro"] },
-  { group: "🛒 Alimentação",      items: ["Supermercado", "Compras Continente", "Restaurante", "Convívio"] },
-  { group: "❤️ Saúde",           items: ["Consultas", "Farmácia", "Análises Clínicas", "Compras Wells", "Outros Saúde"] },
-  { group: "🎉 Lazer & Cultura",  items: ["Cinema", "Espetáculos", "Museus", "Lazer", "Festas", "Cultura"] },
-  { group: "✈️ Viagens",          items: ["Viagem", "Férias", "Alojamento", "Seguro Viagem"] },
-  { group: "👕 Compras Pessoais", items: ["Vestuário", "Beleza", "Prendas", "Acessórios", "Desporto", "Tecnologia", "Compras Online"] },
-  { group: "👶 Bebé",             items: ["Bebé"] },
-  { group: "📱 Telecomunicações", items: ["Telemóvel Tiago", "O Vigilante"] },
-  { group: "🚌 Transportes",      items: ["Transportes", "Levantamentos"] },
-  { group: "🏦 Poupanças",        items: ["Poupança Casa", "Poupança Extra"] },
-  { group: "📈 Investimentos",    items: ["Investimento", "Investimento Extra"] },
-  { group: "⚙️ Momentâneas",      items: ["Momentanea Empregador 1", "Momentanea Empregador 2"] },
-  { group: "🔧 Outros",           items: ["Outros", "Erro", "Devoluções"] },
-];
+import { state } from "./state.js";
 
-export const INCOME_CATEGORIES = [
-  "Salário", "Outras Receitas", "Valores Creditados",
-  "Devolução Empregador 1", "Devolução Empregador 2",
-];
-
-export const ALL_CATEGORIES = CATEGORY_GROUPS.flatMap(g => g.items);
-
-// Regras base — servem de arranque. As tuas próprias regras
-// (tabela fin_rules) têm sempre prioridade sobre estas.
+// Regras base — semente de arranque, não estrutura. Continuam a
+// referir categorias pelo nome; o id é resolvido em categorize().
+// As regras do utilizador (fin_rules) têm sempre prioridade.
 export const DEFAULT_RULES = [
   ["TRANSFERENCIA - VENCIMENTO", "Salário"],
   ["RENDA", "Renda Habitação"],
@@ -73,17 +58,82 @@ export const DEFAULT_RULES = [
   ["LEVANTAMENTO", "Levantamentos"],
 ];
 
-export function isIncome(category) {
-  return INCOME_CATEGORIES.includes(category);
+// ─── Consultas ───
+
+export function categoryById(id) {
+  if (!id) return null;
+  return state.categories.find(c => c.id === id) || null;
+}
+
+export function categoryByName(name) {
+  const clean = String(name || "").trim().toLowerCase();
+  if (!clean) return null;
+  return state.categories.find(c => c.name.trim().toLowerCase() === clean) || null;
+}
+
+export function categoryByCode(code) {
+  const n = Number(code);
+  if (!Number.isFinite(n)) return null;
+  return state.categories.find(c => Number(c.code) === n) || null;
+}
+
+/** Nome a mostrar. Nunca devolve vazio, para a tabela não ficar com buracos. */
+export function categoryName(id) {
+  return categoryById(id)?.name || "—";
+}
+
+export function isIncome(id) {
+  return categoryById(id)?.kind === "income";
+}
+
+/** A categoria de sistema («Outros»): destino por omissão do importador. */
+export function systemCategoryId() {
+  return state.categories.find(c => c.is_system)?.id || null;
+}
+
+/**
+ * Categoria a usar quando nenhuma regra corresponde.
+ * Entradas vão para «Valores Creditados» se existir; tudo o resto
+ * cai na categoria de sistema.
+ */
+export function fallbackCategoryId(amount) {
+  if (Number(amount) > 0) {
+    const creditos = categoryByName("Valores Creditados");
+    if (creditos) return creditos.id;
+  }
+  return systemCategoryId();
+}
+
+/** Grupos ordenados, cada um com as suas categorias ordenadas. */
+export function groupedCategories({ includeArchived = false, keepId = null } = {}) {
+  const grupos = [...state.categoryGroups]
+    .filter(g => includeArchived || !g.archived_at)
+    .sort((a, b) => a.sort_order - b.sort_order);
+
+  return grupos.map(g => ({
+    group: g,
+    items: state.categories
+      .filter(c => c.group_id === g.id)
+      // Arquivadas saem dos seletores — exceto a que está em uso no
+      // movimento a ser editado, senão desaparecia do próprio seletor.
+      .filter(c => includeArchived || !c.archived_at || c.id === keepId)
+      .sort((a, b) => a.sort_order - b.sort_order),
+  })).filter(g => g.items.length > 0);
 }
 
 /** Preenche um <select> com as categorias agrupadas. */
-export function fillCategorySelect(selectEl, selected) {
-  selectEl.innerHTML = CATEGORY_GROUPS.map(({ group, items }) =>
-    `<optgroup label="${group}">` +
-    items.map(c => `<option value="${c}"${c === selected ? " selected" : ""}>${c}</option>`).join("") +
-    `</optgroup>`
-  ).join("");
+export function fillCategorySelect(selectEl, selectedId) {
+  if (!selectEl) return;
+
+  selectEl.innerHTML = groupedCategories({ keepId: selectedId })
+    .map(({ group, items }) =>
+      `<optgroup label="${escapeAttr(`${group.emoji} ${group.name}`.trim())}">` +
+      items.map(c =>
+        `<option value="${c.id}"${c.id === selectedId ? " selected" : ""}>` +
+        `${escapeAttr(c.name)}${c.archived_at ? " (arquivada)" : ""}</option>`
+      ).join("") +
+      `</optgroup>`
+    ).join("");
 }
 
 /**
@@ -101,4 +151,10 @@ export function suggestKeyword(description) {
     .slice(0, 3)
     .join(" ")
     .trim();
+}
+
+function escapeAttr(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
 }

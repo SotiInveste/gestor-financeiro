@@ -10,6 +10,8 @@ import { monthOf, yearOf, makeHash } from "./utils.js";
 export const state = {
   transactions: [],
   rules: [],
+  categories: [],
+  categoryGroups: [],
   month: new Date().getMonth(),
   year: new Date().getFullYear(),
   page: "dashboard",
@@ -31,13 +33,33 @@ export function monthTotals(list = currentMonthTransactions()) {
 
 /** Despesas agregadas por categoria, ordenadas. */
 export function expensesByCategory(list = currentMonthTransactions()) {
-  const map = {};
+  // Agrupado por category_id, não pelo nome: duas categorias com
+  // nomes parecidos deixam de ser fundidas por acaso, e renomear
+  // uma categoria passa a refletir-se sozinho no histórico.
+  const map = new Map();
   list.filter(t => t.amount < 0).forEach(t => {
-    map[t.category] = (map[t.category] || 0) + Math.abs(Number(t.amount));
+    const key = t.category_id || "sem-categoria";
+    map.set(key, (map.get(key) || 0) + Math.abs(Number(t.amount)));
   });
-  return Object.entries(map)
-    .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
+
+  return [...map.entries()]
+    .map(([id, value]) => ({
+      id,
+      name: catName(id),
+      value: Number(value.toFixed(2)),
+    }))
     .sort((a, b) => b.value - a.value);
+}
+
+/**
+ * Nome de uma categoria a partir do estado local.
+ *
+ * Resolvido aqui em vez de importar categories.js: esse módulo já
+ * importa este, e um ciclo entre os dois seria frágil.
+ */
+export function catName(id) {
+  if (!id) return "Sem categoria";
+  return state.categories.find(c => c.id === id)?.name || "—";
 }
 
 /** Série mensal do ano selecionado, para o gráfico de evolução. */

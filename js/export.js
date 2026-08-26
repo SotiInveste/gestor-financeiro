@@ -5,7 +5,7 @@
 // por isso as linhas validadas saem mesmo com fundo #6AA84F.
 // ═══════════════════════════════════════════════════════════
 
-import { state } from "./state.js";
+import { state, catName } from "./state.js";
 import { MONTHS_SHORT, monthOf, yearOf } from "./utils.js";
 import { toast } from "./ui.js";
 
@@ -41,7 +41,7 @@ export function exportToExcel() {
         t.movement_date,
         t.value_date,
         t.description,
-        t.category,
+        catName(t.category_id),
         Number(t.amount),
       ]),
     ];

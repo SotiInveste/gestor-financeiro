@@ -92,13 +92,19 @@ export async function fetchRules() {
   return data || [];
 }
 
-/** Cria ou atualiza uma regra (a keyword é única por utilizador). */
-export async function upsertRule(keyword, category) {
+/**
+ * Cria ou atualiza uma regra (a keyword é única por utilizador).
+ *
+ * A keyword é normalizada aqui para maiúsculas; o índice único é
+ * sobre as colunas simples (user_id, keyword), não sobre upper() —
+ * ver a migração 002.
+ */
+export async function upsertRule(keyword, categoryId) {
   const clean = keyword.trim().toUpperCase();
   const { data, error } = await sb
     .from("fin_rules")
     .upsert(
-      { user_id: currentUserId, keyword: clean, category },
+      { user_id: currentUserId, keyword: clean, category_id: categoryId },
       { onConflict: "user_id,keyword" }
     )
     .select()
@@ -109,6 +115,116 @@ export async function upsertRule(keyword, category) {
 
 export async function deleteRule(id) {
   const { error } = await sb.from("fin_rules").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Categorias ───
+
+/** Grupos e categorias, carregados juntos no arranque. */
+export async function fetchCategoryGroups() {
+  const { data, error } = await sb
+    .from("fin_category_groups")
+    .select("*")
+    .order("sort_order");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchCategories() {
+  const { data, error } = await sb
+    .from("fin_categories")
+    .select("*")
+    .order("sort_order");
+  if (error) throw error;
+  return data || [];
+}
+
+/** Cria uma categoria. O código é atribuído como max(code) + 1. */
+export async function insertCategory({ groupId, name, kind = "expense" }) {
+  const { data: maxes, error: errMax } = await sb
+    .from("fin_categories")
+    .select("code, sort_order, group_id")
+    .order("code", { ascending: false });
+  if (errMax) throw errMax;
+
+  const nextCode = (Number(maxes?.[0]?.code) || 99) + 1;
+  const noGrupo = (maxes || []).filter(c => c.group_id === groupId);
+  const nextOrder = Math.max(0, ...noGrupo.map(c => Number(c.sort_order) || 0)) + 1;
+
+  const { data, error } = await sb
+    .from("fin_categories")
+    .insert({
+      user_id: currentUserId,
+      group_id: groupId,
+      name: name.trim(),
+      kind,
+      code: nextCode,
+      sort_order: nextOrder,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateCategory(id, patch) {
+  const { data, error } = await sb
+    .from("fin_categories")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Apagar só é permitido se nada apontar para a categoria.
+ * Devolve as contagens para a interface poder oferecer arquivar.
+ */
+export async function categoryUsage(id) {
+  const [mov, reg] = await Promise.all([
+    sb.from("fin_transactions").select("id", { count: "exact", head: true })
+      .eq("category_id", id).is("deleted_at", null),
+    sb.from("fin_rules").select("id", { count: "exact", head: true })
+      .eq("category_id", id),
+  ]);
+  if (mov.error) throw mov.error;
+  if (reg.error) throw reg.error;
+  return { movimentos: mov.count || 0, regras: reg.count || 0 };
+}
+
+export async function deleteCategory(id) {
+  const { error } = await sb.from("fin_categories").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Persiste a ordem de várias categorias.
+ *
+ * Updates individuais em vez de um upsert: o upsert do PostgREST
+ * envia a linha inteira e falharia nas colunas obrigatórias que
+ * aqui não são enviadas.
+ */
+export async function updateCategoryOrder(items) {
+  await Promise.all(items.map(({ id, sort_order }) =>
+    sb.from("fin_categories").update({ sort_order }).eq("id", id)
+      .then(({ error }) => { if (error) throw error; })
+  ));
+}
+
+/** Quantas categorias tem um grupo (inclui arquivadas). */
+export async function groupUsage(id) {
+  const { count, error } = await sb
+    .from("fin_categories")
+    .select("id", { count: "exact", head: true })
+    .eq("group_id", id);
+  if (error) throw error;
+  return count || 0;
+}
+
+export async function deleteGroup(id) {
+  const { error } = await sb.from("fin_category_groups").delete().eq("id", id);
   if (error) throw error;
 }
 
