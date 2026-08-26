@@ -81,6 +81,35 @@ Data Lanc. | Data Valor | Descrição | Valor | Saldo
 Valores negativos são despesas. O parser deteta o cabeçalho dinamicamente
 em vez de assumir posições fixas — manter esse comportamento.
 
+## RLS — lição de 26/08/2026
+
+A política `own rules` do `fin_rules` existia mas **sem expressão**: `qual` e
+`with_check` ambos nulos em `pg_policies`. Uma política assim não concede nada.
+
+Sintomas, os dois ao mesmo tempo:
+
+- gravar → `new row violates row-level security policy`
+- ler → **lista vazia**, sem erro nenhum
+
+O segundo é o perigoso: uma tabela vazia parece um estado legítimo. A tabela
+esteve vazia desde sempre e ninguém deu por isso — a categorização automática
+andou meses só com as `DEFAULT_RULES`, e cada tentativa de guardar uma regra
+falhava em silêncio porque o `catch` do `transactions.js` engolia o erro.
+
+**Ao suspeitar de RLS, conferir com:**
+
+```sql
+select tablename, policyname, cmd, qual, with_check
+from pg_policies where schemaname = 'public' and tablename like 'fin_%';
+```
+
+O que falta a uma política depende do comando — `INSERT` só tem `WITH CHECK`,
+`SELECT` só tem `USING`, `FOR ALL` tem de ter os dois. Ver a auditoria no fim
+de `supabase/migrations/006_rls_fin_rules.sql`.
+
+**Regra que daqui decorre:** nunca escrever `catch {}` sem `console.error`.
+Foi o que transformou um bug de uma linha em meses de comportamento errado.
+
 ## Categorização
 
 Duas camadas, por esta ordem:
