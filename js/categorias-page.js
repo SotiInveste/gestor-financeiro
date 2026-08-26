@@ -55,10 +55,13 @@ export function renderCategoriesPage() {
   if (!wrap) return;
 
   const usos = contagemPorCategoria();
-  const grupos = groupedCategories({ includeArchived: verArquivadas });
+  const grupos = groupedCategories({
+    includeArchived: verArquivadas,
+    includeEmpty: true,
+  });
 
   if (!grupos.length) {
-    wrap.innerHTML = `<div class="card empty"><p>Sem categorias.</p></div>`;
+    wrap.innerHTML = `<div class="card empty"><p>Sem grupos nem categorias.</p></div>`;
     return;
   }
 
