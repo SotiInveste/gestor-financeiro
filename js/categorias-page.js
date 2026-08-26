@@ -343,17 +343,69 @@ async function apagarCategoria(c, btn) {
   }
 }
 
+// ═══ Seletor de emoji ═══
+
+// Paleta curada para grupos de despesa. O campo continua editável,
+// para quem quiser colar um emoji que não esteja aqui.
+const EMOJIS = [
+  "\u{1F4B0}", "\u{1F3E0}", "\u{1F697}", "\u{1F6D2}", "\u2764\uFE0F", "\u{1F389}",
+  "\u2708\uFE0F", "\u{1F455}", "\u{1F476}", "\u{1F4F1}", "\u{1F68C}", "\u{1F3E6}",
+  "\u{1F4C8}", "\u2699\uFE0F", "\u{1F527}", "\u{1F393}", "\u{1F4DA}", "\u{1F415}",
+  "\u{1F431}", "\u{1F381}", "\u{1F37D}\uFE0F", "\u2615", "\u{1F37A}", "\u{1F3CB}\uFE0F",
+  "\u26BD", "\u{1F3AE}", "\u{1F3AC}", "\u{1F3B5}", "\u{1F48A}", "\u{1FA7A}",
+  "\u{1F9FE}", "\u{1F4A1}", "\u{1F525}", "\u{1F4A7}", "\u{1F310}", "\u{1F4BB}",
+  "\u{1F3A8}", "\u{1F9F3}", "\u{1F3D6}\uFE0F", "\u{1F6B2}", "\u{1F6E0}\uFE0F", "\u{1FAB4}",
+];
+
+/** Campo de emoji: texto livre + grelha de escolha rápida. */
+function campoEmoji(atual = "") {
+  return (
+    `<label>Emoji</label>
+     <input type="text" data-field="emoji" id="campo-emoji"
+            value="${esc(atual)}" maxlength="4" class="emoji-campo"
+            placeholder="Escolhe abaixo ou cola aqui">
+     <div class="emoji-grelha" id="emoji-grelha">` +
+    EMOJIS.map(e =>
+      `<button type="button" class="emoji-op${e === atual ? " ativo" : ""}" ` +
+      `data-emoji="${e}" title="${e}">${e}</button>`
+    ).join("") +
+    `</div>`
+  );
+}
+
+/**
+ * Liga a grelha ao campo.
+ *
+ * Tem de ser chamado depois de confirmModal montar o DOM, mas antes
+ * de esperar pela promessa — o modal escreve o innerHTML de forma
+ * síncrona, por isso os elementos já existem quando esta corre.
+ */
+function ligarSeletorEmoji() {
+  const grelha = document.getElementById("emoji-grelha");
+  const campo = document.getElementById("campo-emoji");
+  if (!grelha || !campo) return;
+
+  grelha.onclick = e => {
+    const btn = e.target.closest(".emoji-op");
+    if (!btn) return;
+    campo.value = btn.dataset.emoji;
+    grelha.querySelectorAll(".emoji-op").forEach(b =>
+      b.classList.toggle("ativo", b === btn));
+  };
+}
+
 async function criarGrupo() {
-  const res = await confirmModal({
+  const promessa = confirmModal({
     title: "Novo grupo",
     text: "Os grupos organizam as categorias nos seletores.",
     okLabel: "Criar",
     extraHTML:
-      `<label>Emoji</label>
-       <input type="text" data-field="emoji" placeholder="Ex: \u{1F393}" maxlength="4">
-       <label>Nome</label>
-       <input type="text" data-field="nome" placeholder="Ex: Educa\u00e7\u00e3o">`,
+      `<label>Nome</label>
+       <input type="text" data-field="nome" placeholder="Ex: Educa\u00e7\u00e3o">` +
+      campoEmoji(),
   });
+  ligarSeletorEmoji();
+  const res = await promessa;
   if (!res || !res.nome?.trim()) return;
 
   try {
@@ -367,16 +419,17 @@ async function criarGrupo() {
 }
 
 async function editarGrupo(g, btn) {
-  const res = await confirmModal({
+  const promessa = confirmModal({
     title: "Editar grupo",
     text: "Renomear \u00e9 seguro: as categorias apontam para o id do grupo, n\u00e3o para o nome.",
     okLabel: "Guardar",
     extraHTML:
-      `<label>Emoji</label>
-       <input type="text" data-field="emoji" value="${esc(g.emoji || "")}" maxlength="4">
-       <label>Nome</label>
-       <input type="text" data-field="nome" value="${esc(g.name)}">`,
+      `<label>Nome</label>
+       <input type="text" data-field="nome" value="${esc(g.name)}">` +
+      campoEmoji(g.emoji || ""),
   });
+  ligarSeletorEmoji();
+  const res = await promessa;
   if (!res || !res.nome?.trim()) return;
 
   const patch = {};
