@@ -35,18 +35,30 @@ select
   cmd,
   coalesce(qual, '(vazio)')       as usando,
   coalesce(with_check, '(vazio)') as verificando,
+  -- O que falta a uma política depende do comando:
+  --   INSERT  → só tem WITH CHECK (não há linha antiga para filtrar)
+  --   SELECT  → só tem USING (não se escreve nada)
+  --   UPDATE  → tem os dois
+  --   DELETE  → só USING
+  --   ALL     → tem de ter os dois
   case
-    when qual is null and with_check is null then 'DEFEITUOSA — nao concede nada'
-    when qual is null                        then 'sem USING — leitura bloqueada'
-    when with_check is null                  then 'sem WITH CHECK — herda o USING'
-    else 'OK'
+    when cmd = 'INSERT' then
+      case when with_check is null then 'DEFEITUOSA — INSERT sem WITH CHECK' else 'OK' end
+    when cmd = 'SELECT' then
+      case when qual is null then 'DEFEITUOSA — SELECT sem USING' else 'OK' end
+    when cmd = 'DELETE' then
+      case when qual is null then 'DEFEITUOSA — DELETE sem USING' else 'OK' end
+    when cmd = 'UPDATE' then
+      case when qual is null or with_check is null
+           then 'INCOMPLETA — UPDATE devia ter USING e WITH CHECK' else 'OK' end
+    else -- ALL
+      case when qual is null or with_check is null
+           then 'DEFEITUOSA — ALL sem expressao nao concede nada' else 'OK' end
   end as veredicto
 from pg_policies
 where schemaname = 'public'
   and tablename like 'fin_%'
-order by
-  case when qual is null or with_check is null then 0 else 1 end,
-  tablename;
+order by tablename, cmd;
 
 
 -- ═══════════════════════════════════════════════════════════
