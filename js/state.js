@@ -7,13 +7,49 @@
 
 import { monthOf, yearOf, makeHash } from "./utils.js";
 
+// ─── Ordenação da tabela, guardada entre sessões ───
+
+const SORT_KEY = "gestorfin-sort";
+const SORT_OMISSAO = { col: "value_date", dir: "asc" };
+
+export const COLUNAS_ORDENAVEIS = [
+  "movement_date", "value_date", "description", "note", "category", "amount",
+];
+
+/**
+ * O localStorage pode estar indisponível (janela privada, dados
+ * limpos) ou conter lixo de uma versão anterior — daí a validação
+ * e o try/catch. Em qualquer falha volta-se à ordenação por omissão.
+ */
+function ordenacaoGuardada() {
+  try {
+    const bruto = localStorage.getItem(SORT_KEY);
+    if (!bruto) return { ...SORT_OMISSAO };
+    const s = JSON.parse(bruto);
+    if (COLUNAS_ORDENAVEIS.includes(s?.col) && (s.dir === "asc" || s.dir === "desc")) {
+      return { col: s.col, dir: s.dir };
+    }
+  } catch (err) {
+    console.error("Ordenação guardada ilegível:", err);
+  }
+  return { ...SORT_OMISSAO };
+}
+
+export function guardarOrdenacao() {
+  try {
+    localStorage.setItem(SORT_KEY, JSON.stringify(state.sort));
+  } catch (err) {
+    console.error("Não foi possível guardar a ordenação:", err);
+  }
+}
+
 export const state = {
   transactions: [],
   rules: [],
   categories: [],
   categoryGroups: [],
-  // Coluna e sentido da ordenacao da tabela de movimentos.
-  sort: { col: "value_date", dir: "asc" },
+  // Coluna e sentido da ordenação, recuperados do localStorage.
+  sort: ordenacaoGuardada(),
   month: new Date().getMonth(),
   year: new Date().getFullYear(),
   page: "dashboard",
@@ -31,8 +67,6 @@ const COMPARADORES = {
   category:      (a, b) => texto(catName(a.category_id), catName(b.category_id)),
   amount:        (a, b) => Number(a.amount) - Number(b.amount),
 };
-
-export const COLUNAS_ORDENAVEIS = Object.keys(COMPARADORES);
 
 /** Movimentos do período selecionado (filtrados pela DATA VALOR). */
 export function currentMonthTransactions() {
