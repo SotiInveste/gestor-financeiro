@@ -473,3 +473,19 @@ body {
   .cat-uso { min-width: 0; }
   .cat-accoes { margin-left: auto; }
 }
+
+/* Gestão de grupos */
+.cat-toolbar-botoes { display: flex; gap: 8px; }
+
+.cat-drag.grupo { font-size: 14px; margin-right: 2px; }
+
+.cat-group.a-arrastar { opacity: .4; border-style: dashed; }
+
+.cat-group-head .muted { margin-left: auto; margin-right: 4px; }
+
+@media (max-width: 560px) {
+  .cat-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .cat-toolbar-botoes .btn { flex: 1; }
+  .cat-group-head { flex-wrap: wrap; }
+  .cat-group-head .card-title { flex-basis: calc(100% - 30px); }
+}
