@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=3">
+  <link rel="stylesheet" href="css/styles.css?v=4">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -60,6 +60,7 @@
         <button class="nav-btn" data-page="transactions">
           Movimentos <span id="badge-pending" class="badge hidden">0</span>
         </button>
+        <button class="nav-btn" data-page="categorias">Categorias</button>
         <button id="btn-export" class="btn btn-green">↓ Excel</button>
         <button id="btn-theme" class="btn-theme" type="button" title="Mudar para tema escuro" aria-label="Mudar para tema escuro">
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -192,6 +193,18 @@
             </table>
           </div>
         </div>
+      </section>
+
+      <!-- ═══ CATEGORIAS ═══ -->
+      <section id="page-categorias" class="page hidden">
+        <div class="actions-bar cat-toolbar">
+          <label class="cat-toggle">
+            <input type="checkbox" id="chk-ver-arquivadas">
+            Ver arquivadas
+          </label>
+          <button id="btn-nova-categoria" class="btn btn-primary">+ Nova categoria</button>
+        </div>
+        <div id="categorias-lista"></div>
       </section>
 
     </main>
