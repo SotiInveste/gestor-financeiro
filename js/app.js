@@ -15,6 +15,7 @@ import { MONTHS, fmt } from "./utils.js";
 import { toast } from "./ui.js";
 import { initTheme } from "./theme.js";
 import { initOpenBanking } from "./openbanking.js";
+import { initContas, renderContas, construirFiltroContas } from "./contas.js";
 import { initCategoriesPage, renderCategoriesPage } from "./categorias-page.js";
 
 // ═══ Arranque ═══
@@ -56,16 +57,18 @@ async function startApp(session) {
 
   // As categorias têm de estar carregadas antes do primeiro render:
   // a tabela e os gráficos resolvem nomes a partir de category_id.
-  const [transactions, rules, categories, categoryGroups] = await Promise.all([
+  const [transactions, rules, categories, categoryGroups, accounts] = await Promise.all([
     db.fetchTransactions(),
     db.fetchRules(),
     db.fetchCategories(),
     db.fetchCategoryGroups(),
+    db.fetchBankAccounts(),
   ]);
   state.transactions = transactions;
   state.rules = rules;
   state.categories = categories;
   state.categoryGroups = categoryGroups;
+  state.accounts = accounts;
 
   document.getElementById("boot").classList.add("hidden");
   document.getElementById("login-screen").classList.add("hidden");
@@ -74,7 +77,10 @@ async function startApp(session) {
   buildPeriodSelectors();
   initManualForm();
   initTableSorting();
+  initContas();
   initCategoriesPage();
+  renderContas();
+  construirFiltroContas();
   initTheme();
   bindEvents();
 
