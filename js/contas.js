@@ -49,16 +49,22 @@ export function construirFiltroContas() {
 
   const contas = state.accounts;
 
-  // Com uma conta só, o filtro é ruído.
+  // Não há opção "todas": juntar contas somava saldos que devem
+  // ficar separados, e sem a coluna Conta a vista seria ambígua.
+  // Há sempre exatamente uma conta escolhida.
+  if (!contas.some(a => a.id === state.accountFilter)) {
+    state.accountFilter = contas[0]?.id || null;
+    guardarConta();
+  }
+
+  // Com uma conta só, o seletor é ruído — mas o filtro continua ativo.
   const wrap = sel.parentElement;
   if (wrap) wrap.classList.toggle("hidden", contas.length < 2);
 
-  sel.innerHTML =
-    `<option value="">Todas as contas</option>` +
-    contas.map(a =>
-      `<option value="${a.id}"${a.id === state.accountFilter ? " selected" : ""}>` +
-      `${esc(nomeConta(a))}</option>`
-    ).join("");
+  sel.innerHTML = contas.map(a =>
+    `<option value="${a.id}"${a.id === state.accountFilter ? " selected" : ""}>` +
+    `${esc(nomeConta(a))}</option>`
+  ).join("");
 
   sel.onchange = () => {
     state.accountFilter = sel.value || null;
@@ -240,11 +246,9 @@ async function arquivarConta(acc, btn) {
   setLoading(btn, true, "…");
   try {
     await db.archiveAccount(acc.id);
-    // Se a conta arquivada era a filtrada, voltar a todas.
-    if (state.accountFilter === acc.id) {
-      state.accountFilter = null;
-      guardarConta();
-    }
+    // Se a conta arquivada era a filtrada, o construirFiltroContas
+    // escolhe a primeira que sobrar.
+    if (state.accountFilter === acc.id) state.accountFilter = null;
     await recarregar();
     toast("Conta arquivada.", "ok");
   } catch (err) {
