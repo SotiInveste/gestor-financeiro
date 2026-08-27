@@ -116,11 +116,6 @@ export function renderTransactions() {
   refreshManualCategorySelect();
   refreshManualAccountSelect();
 
-  // Com uma conta só, a coluna Conta é ruído.
-  const mostrarConta = state.accounts.length > 1;
-  document.querySelectorAll(".col-conta").forEach(el =>
-    el.classList.toggle("hidden", !mostrarConta));
-
   const isEmpty = list.length === 0;
   wrap.classList.toggle("hidden", isEmpty);
   empty.classList.toggle("hidden", !isEmpty);
@@ -169,7 +164,6 @@ function rowHTML(t) {
         ${esc(categoryName(t.category_id))}
       </span>
     </td>
-    <td class="col-conta muted">${esc(accountName(t.bank_account_id))}</td>
     <td class="cell-amount ${amountColor}">${fmt(t.amount)}</td>
     <td class="cell-actions">
       <div class="row-actions">
@@ -187,21 +181,18 @@ function footHTML(totals) {
   <tr>
     <td colspan="4" class="foot-label">Totais do mês</td>
     <td></td>
-    <td class="col-conta"></td>
     <td class="foot-value green">${fmt(totals.income)}<div class="muted">receitas</div></td>
     <td></td>
   </tr>
   <tr>
     <td colspan="4"></td>
     <td></td>
-    <td class="col-conta"></td>
     <td class="foot-value red">${fmt(totals.expense)}<div class="muted">despesas</div></td>
     <td></td>
   </tr>
   <tr class="foot-balance">
     <td colspan="4" class="foot-label">Saldo do mês</td>
     <td></td>
-    <td class="col-conta"></td>
     <td class="foot-value ${balanceClass}">${fmt(totals.balance)}</td>
     <td></td>
   </tr>`;
