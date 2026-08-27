@@ -57,6 +57,29 @@ function atualizarIndicadores() {
   });
 }
 
+/**
+ * Repõe as opções do seletor de categoria do formulário manual.
+ *
+ * O seletor era preenchido só no arranque, dentro de initManualForm.
+ * Categorias criadas ou renomeadas durante a sessão não chegavam lá,
+ * e a lista aparecia incompleta até recarregar a página.
+ *
+ * A escolha em curso é preservada; se essa categoria tiver entretanto
+ * desaparecido, volta-se à predefinição.
+ */
+function refreshManualCategorySelect() {
+  const sel = document.getElementById("m-category");
+  if (!sel) return;
+
+  const atual = sel.value;
+  const aindaExiste = state.categories.some(c => c.id === atual);
+
+  fillCategorySelect(
+    sel,
+    aindaExiste ? atual : categoryByName("Poupança Casa")?.id || null,
+  );
+}
+
 export function renderTransactions() {
   const list = currentMonthTransactions();
   const body = document.getElementById("table-body");
@@ -64,6 +87,9 @@ export function renderTransactions() {
   const wrap = document.getElementById("table-wrap");
   const empty = document.getElementById("table-empty");
   if (!body || !foot) return; // guarda defensiva
+
+  // O estado das categorias pode ter mudado noutra página.
+  refreshManualCategorySelect();
 
   const isEmpty = list.length === 0;
   wrap.classList.toggle("hidden", isEmpty);
@@ -374,9 +400,8 @@ export async function validateAll() {
 export function initManualForm() {
   const form = document.getElementById("manual-form");
   const toggleBtn = document.getElementById("btn-toggle-manual");
-  const categorySelect = document.getElementById("m-category");
 
-  fillCategorySelect(categorySelect, categoryByName("Poupança Casa")?.id || null);
+  refreshManualCategorySelect();
   resetManualForm();
 
   toggleBtn.onclick = () => {
