@@ -303,6 +303,41 @@ export async function deleteGroup(id) {
 
 // ─── Contas bancárias ligadas (open banking) ───
 
+/** Cria uma conta manual — sem open banking por trás. */
+export async function insertManualAccount(name) {
+  const { data, error } = await sb
+    .from("fin_bank_accounts")
+    .insert({
+      user_id: currentUserId,
+      kind: "manual",
+      display_name: name.trim(),
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAccount(id, patch) {
+  const { data, error } = await sb
+    .from("fin_bank_accounts")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Soft delete, como em todo o resto da app. */
+export async function archiveAccount(id) {
+  const { error } = await sb
+    .from("fin_bank_accounts")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 /** Carrega as contas ligadas que não foram desligadas. */
 export async function fetchBankAccounts() {
   const { data, error } = await sb
