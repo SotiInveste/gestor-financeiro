@@ -20,34 +20,22 @@ import { toast, confirmModal, setLoading } from "./ui.js";
 // Guardado antes do reencaminhamento e comparado no regresso.
 const STATE_KEY = "gestorfin-eb-state";
 
-// Aviso quando faltam menos de 30 dias para o consentimento expirar.
-const CONSENT_WARN_DAYS = 30;
-
-let accounts = [];
-
 // ═══ Arranque ═══
 
 export async function initOpenBanking() {
-  const btn = document.getElementById("btn-connect-bank");
-  if (btn) btn.onclick = connectBank;
-
-  await loadAccounts();
+  // O botão de ligar banco e a listagem são de contas.js. Aqui fica
+  // só o regresso da autorização, que tem de correr no arranque.
   await handleRedirect();
-  renderBankSection();
 }
 
-async function loadAccounts() {
-  try {
-    accounts = await db.fetchBankAccounts();
-  } catch (err) {
-    console.error("Não foi possível carregar as contas ligadas:", err);
-    accounts = [];
-  }
+/** Avisa contas.js de que as contas mudaram, sem o importar. */
+function avisarContas() {
+  document.dispatchEvent(new CustomEvent("contas-changed"));
 }
 
 // ═══ Ligar um banco ═══
 
-async function connectBank() {
+export async function connectBank() {
   const btn = document.getElementById("btn-connect-bank");
   setLoading(btn, true, "A procurar bancos…");
 
@@ -129,8 +117,8 @@ async function handleRedirect() {
     });
     if (error || !data?.ok) throw new Error(describeError(error, data));
 
-    await loadAccounts();
-    renderBankSection();
+    state.accounts = await db.fetchBankAccounts();
+    avisarContas();
 
     const novas = data.accounts?.length || 0;
     toast(`✅ Banco ligado — ${novas} conta${novas === 1 ? "" : "s"}.`, "ok");
@@ -138,7 +126,7 @@ async function handleRedirect() {
     // O histórico completo só está disponível durante cerca de uma hora
     // após a autorização. Depois disso a maioria dos bancos limita a
     // 90 dias, por isso vale a pena sincronizar já.
-    const first = accounts.find(a => !a.last_synced_at);
+    const first = state.accounts.find(a => !a.last_synced_at);
     if (first) {
       const go = await confirmModal({
         title: "Importar histórico agora?",
@@ -181,9 +169,8 @@ export async function syncAccount(account, btn = null) {
 
     const result = await importTransactions(account, data.transactions || []);
 
-    await loadAccounts();
-    renderBankSection();
-    document.dispatchEvent(new CustomEvent("data-changed"));
+    state.accounts = await db.fetchBankAccounts();
+    avisarContas();
 
     if (!result.inserted) {
       toast(
@@ -290,75 +277,6 @@ async function importTransactions(account, incoming) {
     skipped,
     autoCategorized: rows.filter(r => r.is_confirmed).length,
   };
-}
-
-// ═══ Interface ═══
-
-export function renderBankSection() {
-  const list = document.getElementById("bank-list");
-  if (!list) return;
-
-  if (!accounts.length) {
-    list.innerHTML = `<p class="muted">Nenhum banco ligado. ` +
-      `Liga o teu banco para importar movimentos automaticamente.</p>`;
-    return;
-  }
-
-  list.innerHTML = "";
-
-  accounts.forEach(acc => {
-    const row = document.createElement("div");
-    row.className = "bank-row";
-
-    const info = document.createElement("div");
-    info.className = "bank-info";
-
-    const name = document.createElement("strong");
-    name.textContent = acc.display_name || acc.aspsp_name || "Conta";
-    info.appendChild(name);
-
-    const meta = document.createElement("span");
-    meta.className = "muted";
-    meta.textContent = describeAccount(acc);
-    info.appendChild(meta);
-
-    const warning = consentWarning(acc);
-    if (warning) {
-      const warn = document.createElement("span");
-      warn.className = "bank-warn";
-      warn.textContent = warning;
-      info.appendChild(warn);
-    }
-
-    const btn = document.createElement("button");
-    btn.className = "btn btn-primary";
-    btn.textContent = acc.last_synced_at ? "Sincronizar" : "Importar histórico";
-    btn.onclick = () => syncAccount(acc, btn);
-
-    row.appendChild(info);
-    row.appendChild(btn);
-    list.appendChild(row);
-  });
-}
-
-function describeAccount(acc) {
-  if (!acc.last_synced_at) return "Nunca sincronizado";
-  const d = new Date(acc.last_synced_at);
-  return `Última sincronização: ${d.toLocaleString("pt-PT", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  })}`;
-}
-
-function consentWarning(acc) {
-  if (!acc.consent_expires_at) return null;
-
-  const expires = new Date(acc.consent_expires_at);
-  const days = Math.ceil((expires - Date.now()) / 86_400_000);
-
-  if (days <= 0) return "⚠ Consentimento expirado — é preciso voltar a ligar o banco.";
-  if (days <= CONSENT_WARN_DAYS) return `⚠ O consentimento expira em ${days} dia${days === 1 ? "" : "s"}.`;
-  return null;
 }
 
 // ═══ Auxiliares ═══
