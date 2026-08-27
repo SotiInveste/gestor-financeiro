@@ -15,7 +15,6 @@ const SORT_OMISSAO = { col: "value_date", dir: "asc" };
 
 export const COLUNAS_ORDENAVEIS = [
   "movement_date", "value_date", "description", "note", "category", "amount",
-  "account",
 ];
 
 /**
@@ -90,8 +89,6 @@ const COMPARADORES = {
   note:          (a, b) => texto(a.note, b.note),
   category:      (a, b) => texto(catName(a.category_id), catName(b.category_id)),
   amount:        (a, b) => Number(a.amount) - Number(b.amount),
-  account:       (a, b) => texto(accountName(a.bank_account_id),
-                                accountName(b.bank_account_id)),
 };
 
 /** Movimentos do período selecionado (filtrados pela DATA VALOR). */
