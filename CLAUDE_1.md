@@ -81,6 +81,43 @@ Data Lanc. | Data Valor | Descrição | Valor | Saldo
 Valores negativos são despesas. O parser deteta o cabeçalho dinamicamente
 em vez de assumir posições fixas — manter esse comportamento.
 
+## Contas
+
+Desde 27/08/2026 os movimentos pertencem sempre a uma conta.
+
+- A tabela e' `fin_bank_accounts`, com `kind` a distinguir `bank`
+  (open banking) de `manual` (cartao refeicao, dinheiro, outra conta).
+- **Divida de nomenclatura:** a tabela chama-se "bank_accounts" mas ja
+  guarda contas que nao sao bancarias. Renomear obriga a republicar a
+  mao as Edge Functions `eb-auth-callback` e `eb-sync`, que a referem
+  pelo nome. Corrigir quando houver outro motivo para lhes tocar.
+- `identification_hash` so existe nas contas de open banking — e' o
+  que permite reassocia-las ao reautorizar. E' nulo nas manuais.
+- **O filtro de conta esta sempre ativo e nao tem opcao "todas".**
+  Juntar contas somaria saldos que devem ficar separados. Por isso um
+  movimento sem `bank_account_id` nao aparece em lado nenhum: o
+  `app.js` avisa no arranque se encontrar algum.
+- `js/contas.js` trata da listagem e das contas manuais;
+  `js/openbanking.js` trata so da conversa com o banco. O openbanking
+  avisa por evento `contas-changed` em vez de importar o contas.js —
+  um ciclo de imports entre os dois seria fragil.
+
+## GitHub Pages: o build pode falhar em silencio
+
+O repositorio tem `.nojekyll` desde 27/08/2026. Sem ele o Pages passa
+o site pelo Jekyll, que este projeto nao usa, e um build falhado
+**nao da erro visivel**: o site continua simplesmente a servir a
+versao anterior.
+
+Se uma alteracao nao aparecer depois de publicada, verificar o estado
+do build antes de suspeitar de cache:
+
+```
+GET /repos/SotiInveste/gestor-financeiro/pages/builds
+```
+
+Nunca remover o `.nojekyll`.
+
 ## Unicidade: a autoridade é a base de dados
 
 Erro cometido tres vezes em 26/08/2026, sempre com o mesmo formato:
