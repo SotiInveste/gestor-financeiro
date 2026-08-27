@@ -74,6 +74,18 @@ async function startApp(session) {
   document.getElementById("login-screen").classList.add("hidden");
   document.getElementById("app").classList.remove("hidden");
 
+  // Com o filtro de conta sempre ativo, um movimento sem conta
+  // atribuída não aparece em lado nenhum. Não deve acontecer depois
+  // da migração 008, mas se acontecer tem de ser visível.
+  const semConta = state.transactions.filter(t => !t.bank_account_id).length;
+  if (semConta) {
+    console.error(
+      `${semConta} movimentos sem conta atribuída — não aparecem em nenhum ` +
+      `filtro. Ver a migração 008_contas_manuais.sql.`,
+    );
+    toast(`${semConta} movimentos sem conta atribuída — ver consola.`, "err");
+  }
+
   buildPeriodSelectors();
   initManualForm();
   initTableSorting();
