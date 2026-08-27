@@ -10,10 +10,12 @@ import { monthOf, yearOf, makeHash } from "./utils.js";
 // ─── Ordenação da tabela, guardada entre sessões ───
 
 const SORT_KEY = "gestorfin-sort";
+const CONTA_KEY = "gestorfin-conta";
 const SORT_OMISSAO = { col: "value_date", dir: "asc" };
 
 export const COLUNAS_ORDENAVEIS = [
   "movement_date", "value_date", "description", "note", "category", "amount",
+  "account",
 ];
 
 /**
@@ -35,6 +37,25 @@ function ordenacaoGuardada() {
   return { ...SORT_OMISSAO };
 }
 
+/** Conta filtrada, ou null para todas. Sobrevive a recarregamentos. */
+function contaGuardada() {
+  try {
+    return localStorage.getItem(CONTA_KEY) || null;
+  } catch (err) {
+    console.error("Filtro de conta ilegível:", err);
+    return null;
+  }
+}
+
+export function guardarConta() {
+  try {
+    if (state.accountFilter) localStorage.setItem(CONTA_KEY, state.accountFilter);
+    else localStorage.removeItem(CONTA_KEY);
+  } catch (err) {
+    console.error("Não foi possível guardar o filtro de conta:", err);
+  }
+}
+
 export function guardarOrdenacao() {
   try {
     localStorage.setItem(SORT_KEY, JSON.stringify(state.sort));
@@ -48,6 +69,9 @@ export const state = {
   rules: [],
   categories: [],
   categoryGroups: [],
+  accounts: [],
+  // Conta filtrada; null mostra todas.
+  accountFilter: contaGuardada(),
   // Coluna e sentido da ordenação, recuperados do localStorage.
   sort: ordenacaoGuardada(),
   month: new Date().getMonth(),
@@ -66,6 +90,8 @@ const COMPARADORES = {
   note:          (a, b) => texto(a.note, b.note),
   category:      (a, b) => texto(catName(a.category_id), catName(b.category_id)),
   amount:        (a, b) => Number(a.amount) - Number(b.amount),
+  account:       (a, b) => texto(accountName(a.bank_account_id),
+                                accountName(b.bank_account_id)),
 };
 
 /** Movimentos do período selecionado (filtrados pela DATA VALOR). */
@@ -76,6 +102,7 @@ export function currentMonthTransactions() {
 
   return state.transactions
     .filter(t => monthOf(t.value_date) === state.month && yearOf(t.value_date) === state.year)
+    .filter(passaFiltroConta)
     .sort((a, b) => {
       const r = cmp(a, b) * sinal;
       // Desempate sempre pela data valor, no mesmo sentido: linhas
@@ -117,6 +144,18 @@ export function expensesByCategory(list = currentMonthTransactions()) {
  * Resolvido aqui em vez de importar categories.js: esse módulo já
  * importa este, e um ciclo entre os dois seria frágil.
  */
+/** Respeita o filtro de conta ativo. Sem filtro, deixa passar tudo. */
+export function passaFiltroConta(t) {
+  return !state.accountFilter || t.bank_account_id === state.accountFilter;
+}
+
+/** Nome de uma conta a partir do estado local. */
+export function accountName(id) {
+  if (!id) return "—";
+  const a = state.accounts.find(x => x.id === id);
+  return a ? (a.display_name || a.aspsp_name || "Conta") : "—";
+}
+
 export function catName(id) {
   if (!id) return "Sem categoria";
   return state.categories.find(c => c.id === id)?.name || "—";
@@ -128,6 +167,7 @@ export function yearlySeries() {
   const expense = Array(12).fill(0);
   state.transactions.forEach(t => {
     if (yearOf(t.value_date) !== state.year) return;
+    if (!passaFiltroConta(t)) return;
     const m = monthOf(t.value_date);
     if (t.amount > 0) income[m] += Number(t.amount);
     else expense[m] += Math.abs(Number(t.amount));
