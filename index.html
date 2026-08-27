@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=7">
+  <link rel="stylesheet" href="css/styles.css?v=8">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -83,6 +83,9 @@
         <select id="select-month" class="select"></select>
         <select id="select-year" class="select"></select>
         <button id="next-month" class="btn btn-icon">›</button>
+        <span class="filtro-conta hidden">
+          <select id="select-account" class="select"></select>
+        </span>
         <span id="period-count" class="muted"></span>
       </div>
 
@@ -137,6 +140,7 @@
           </div>
           <div class="form-grid">
             <label class="col-2">Categoria<select id="m-category" class="select"></select></label>
+            <label class="col-2">Conta<select id="m-account" class="select"></select></label>
             <label class="col-2">Tipo
               <div class="type-toggle">
                 <button type="button" class="type-btn active" data-type="expense">↓ Despesa</button>
@@ -166,6 +170,7 @@
                   <th class="sortable" data-sort="description" tabindex="0" role="button">Descrição<span class="sort-ind"></span></th>
                   <th class="sortable" data-sort="note" tabindex="0" role="button">Nota<span class="sort-ind"></span></th>
                   <th class="sortable" data-sort="category" tabindex="0" role="button">Categoria<span class="sort-ind"></span></th>
+                  <th class="sortable col-conta" data-sort="account" tabindex="0" role="button">Conta<span class="sort-ind"></span></th>
                   <th class="sortable right" data-sort="amount" tabindex="0" role="button">Valor<span class="sort-ind"></span></th>
                   <th></th>
                 </tr>
@@ -178,13 +183,16 @@
 
         <!-- Entrada de dados: fica no fim porque é ocasional.
              O que se consulta todos os dias é a lista acima. -->
-        <h2 class="seccao-titulo">Importar movimentos</h2>
+        <h2 class="seccao-titulo">Contas e importação</h2>
 
-        <!-- Ligação ao banco (open banking) -->
+        <!-- Contas: ligadas por open banking e manuais -->
         <div class="card bank-section">
           <div class="bank-head">
-            <h3 class="card-title">Banco ligado</h3>
-            <button id="btn-connect-bank" class="btn btn-outline">+ Ligar banco</button>
+            <h3 class="card-title">Contas</h3>
+            <span class="cat-toolbar-botoes">
+              <button id="btn-nova-conta" class="btn btn-ghost">+ Conta manual</button>
+              <button id="btn-connect-bank" class="btn btn-outline">+ Ligar banco</button>
+            </span>
           </div>
           <div id="bank-list" class="bank-list"></div>
         </div>
