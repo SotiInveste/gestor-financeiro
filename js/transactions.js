@@ -4,7 +4,7 @@
 
 import {
   state, currentMonthTransactions, monthTotals,
-  updateLocal, removeLocal, addLocal, guardarOrdenacao,
+  updateLocal, removeLocal, addLocal, guardarOrdenacao, accountName,
 } from "./state.js";
 import { fmt, shortDate, esc, today } from "./utils.js";
 import {
@@ -80,6 +80,30 @@ function refreshManualCategorySelect() {
   );
 }
 
+/**
+ * Repõe as opções do seletor de conta do formulário manual.
+ * Mesma razão do seletor de categorias: as contas podem ser criadas
+ * durante a sessão.
+ */
+function refreshManualAccountSelect() {
+  const sel = document.getElementById("m-account");
+  if (!sel) return;
+
+  const atual = sel.value;
+  const contas = state.accounts;
+
+  sel.innerHTML = contas.map(a =>
+    `<option value="${a.id}">${esc(accountName(a.id))}</option>`
+  ).join("");
+
+  // Preferência: a escolha em curso, senão a conta filtrada, senão a
+  // primeira. Assim, a filtrar por uma conta, o movimento novo entra
+  // nessa conta sem ser preciso mexer no seletor.
+  const preferida = contas.some(a => a.id === atual) ? atual
+    : (state.accountFilter || contas[0]?.id || "");
+  if (preferida) sel.value = preferida;
+}
+
 export function renderTransactions() {
   const list = currentMonthTransactions();
   const body = document.getElementById("table-body");
@@ -88,8 +112,14 @@ export function renderTransactions() {
   const empty = document.getElementById("table-empty");
   if (!body || !foot) return; // guarda defensiva
 
-  // O estado das categorias pode ter mudado noutra página.
+  // O estado das categorias e contas pode ter mudado noutra página.
   refreshManualCategorySelect();
+  refreshManualAccountSelect();
+
+  // Com uma conta só, a coluna Conta é ruído.
+  const mostrarConta = state.accounts.length > 1;
+  document.querySelectorAll(".col-conta").forEach(el =>
+    el.classList.toggle("hidden", !mostrarConta));
 
   const isEmpty = list.length === 0;
   wrap.classList.toggle("hidden", isEmpty);
@@ -139,6 +169,7 @@ function rowHTML(t) {
         ${esc(categoryName(t.category_id))}
       </span>
     </td>
+    <td class="col-conta muted">${esc(accountName(t.bank_account_id))}</td>
     <td class="cell-amount ${amountColor}">${fmt(t.amount)}</td>
     <td class="cell-actions">
       <div class="row-actions">
@@ -156,18 +187,21 @@ function footHTML(totals) {
   <tr>
     <td colspan="4" class="foot-label">Totais do mês</td>
     <td></td>
+    <td class="col-conta"></td>
     <td class="foot-value green">${fmt(totals.income)}<div class="muted">receitas</div></td>
     <td></td>
   </tr>
   <tr>
     <td colspan="4"></td>
     <td></td>
+    <td class="col-conta"></td>
     <td class="foot-value red">${fmt(totals.expense)}<div class="muted">despesas</div></td>
     <td></td>
   </tr>
   <tr class="foot-balance">
     <td colspan="4" class="foot-label">Saldo do mês</td>
     <td></td>
+    <td class="col-conta"></td>
     <td class="foot-value ${balanceClass}">${fmt(totals.balance)}</td>
     <td></td>
   </tr>`;
@@ -443,6 +477,7 @@ async function saveManual() {
   const movementDate = document.getElementById("m-movement-date").value;
   const valueDate = document.getElementById("m-value-date").value || movementDate;
   const categoryId = document.getElementById("m-category").value;
+  const accountId = document.getElementById("m-account").value || null;
 
   if (!description || !Number.isFinite(rawAmount) || rawAmount === 0) {
     return toast("Preenche a descrição e um valor válido.", "err");
@@ -459,6 +494,7 @@ async function saveManual() {
       description,
       note: "",
       category_id: categoryId,
+      bank_account_id: accountId,
       amount: Number(amount.toFixed(2)),
       is_manual: true,
       is_validated: false,
