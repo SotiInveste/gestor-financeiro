@@ -560,3 +560,21 @@ body {
   padding-top: 20px;
   border-top: 1px solid var(--border);
 }
+
+/* ═══ Contas ═══ */
+.filtro-conta { display: inline-flex; }
+.filtro-conta .select { max-width: 190px; }
+
+.conta-accoes { display: flex; gap: 6px; flex-shrink: 0; }
+
+.table td.col-conta {
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 560px) {
+  .filtro-conta .select { max-width: 140px; }
+}
