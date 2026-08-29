@@ -229,8 +229,12 @@ body {
   justify-content: center;
   gap: 2px;
   padding: 10px;
+  height: 170px;
+  /* Este cartão tem a classe .card mas não .kpi, por isso não apanhava
+     o margin-bottom: 0 dos outros quatro e ficava desalinhado. */
+  margin-bottom: 0;
 }
-.kpi-donut { width: 100%; height: 118px; }
+.kpi-donut { width: 100%; height: 132px; }
 #destino-base { font-size: 11px; margin: 0; text-align: center; }
 
 
