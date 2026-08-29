@@ -2,12 +2,16 @@
 // Dashboard — KPIs, donut de categorias e evolução anual
 // ═══════════════════════════════════════════════════════════
 
-import { state, currentMonthTransactions, monthTotals, expensesByCategory, yearlySeries } from "./state.js";
+import {
+  state, currentMonthTransactions, monthTotals,
+  expensesByCategory, expensesByGroup, yearlySeries,
+} from "./state.js";
 import { fmt, MONTHS_SHORT, CHART_COLORS, esc } from "./utils.js";
 import { themeColors } from "./theme.js";
 
-let categoryChart = null;
-let evolutionChart = null;
+// Guardados para poderem ser destruídos antes de repintar: o Chart.js
+// não substitui um gráfico existente no mesmo canvas.
+const graficos = { categorias: null, grupos: null, evolucao: null };
 
 export function renderDashboard() {
   const list = currentMonthTransactions();
@@ -35,18 +39,28 @@ export function renderDashboard() {
   if (yearLabel) yearLabel.textContent = state.year;
 
   if (!isEmpty) {
-    renderCategoryChart(expensesByCategory(list), totals.expense);
-    renderTopCategories(expensesByCategory(list), totals.expense);
+    const porCategoria = expensesByCategory(list);
+    const porGrupo = expensesByGroup(list);
+
+    renderDonut("grupos", "chart-groups", "legend-groups", porGrupo, totals.expense);
+    renderTopList("top-groups", porGrupo, totals.expense);
+
+    renderDonut("categorias", "chart-categories", "legend-categories", porCategoria, totals.expense);
+    renderTopList("top-categories", porCategoria, totals.expense);
   }
   renderEvolutionChart();
 }
 
-function renderCategoryChart(data, totalExpense) {
-  const canvas = document.getElementById("chart-categories");
-  const legend = document.getElementById("legend-categories");
+/**
+ * Donut de despesas. Serve categorias e grupos — só mudam os dados e
+ * os elementos onde desenha.
+ */
+function renderDonut(chave, canvasId, legendId, data, totalExpense) {
+  const canvas = document.getElementById(canvasId);
+  const legend = document.getElementById(legendId);
   if (!canvas || !legend) return;
 
-  if (categoryChart) categoryChart.destroy();
+  if (graficos[chave]) graficos[chave].destroy();
 
   const colors = themeColors();
 
@@ -55,7 +69,7 @@ function renderCategoryChart(data, totalExpense) {
     return;
   }
 
-  categoryChart = new Chart(canvas, {
+  graficos[chave] = new Chart(canvas, {
     type: "doughnut",
     data: {
       labels: data.map(d => d.name),
@@ -95,8 +109,9 @@ function renderCategoryChart(data, totalExpense) {
   }).join("");
 }
 
-function renderTopCategories(data, totalExpense) {
-  const container = document.getElementById("top-categories");
+/** Lista ordenada de despesas. Serve categorias e grupos. */
+function renderTopList(containerId, data, totalExpense) {
+  const container = document.getElementById(containerId);
   if (!container) return;
 
   if (!data.length) {
@@ -122,9 +137,9 @@ function renderEvolutionChart() {
 
   const series = yearlySeries();
   const colors = themeColors();
-  if (evolutionChart) evolutionChart.destroy();
+  if (graficos.evolucao) graficos.evolucao.destroy();
 
-  evolutionChart = new Chart(canvas, {
+  graficos.evolucao = new Chart(canvas, {
     type: "bar",
     data: {
       labels: MONTHS_SHORT,
