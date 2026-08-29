@@ -108,11 +108,33 @@ export function currentMonthTransactions() {
     });
 }
 
-/** Totais do período selecionado. */
+/** Tipo de cada categoria, para classificar movimentos. */
+function mapaDeTipos() {
+  return new Map(state.categories.map(c => [c.id, c.kind]));
+}
+
+/**
+ * Totais do período selecionado.
+ *
+ * A poupança sai do saldo: o dinheiro saiu mesmo da conta, e o saldo
+ * tem de continuar a bater certo com o do banco. O que se separa é a
+ * natureza da saída — poupar não é gastar.
+ *
+ * Um levantamento da poupança (montante positivo numa categoria de
+ * poupança) reduz o total poupado, em vez de contar como receita.
+ */
 export function monthTotals(list = currentMonthTransactions()) {
-  const income = list.filter(t => t.amount > 0).reduce((s, t) => s + Number(t.amount), 0);
-  const expense = list.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
-  return { income, expense, balance: income - expense };
+  const tipos = mapaDeTipos();
+  let income = 0, expense = 0, saving = 0;
+
+  list.forEach(t => {
+    const v = Number(t.amount);
+    if (tipos.get(t.category_id) === "saving") saving += -v;
+    else if (v > 0) income += v;
+    else expense += Math.abs(v);
+  });
+
+  return { income, expense, saving, balance: income - expense - saving };
 }
 
 /** Despesas agregadas por categoria, ordenadas. */
@@ -120,11 +142,17 @@ export function expensesByCategory(list = currentMonthTransactions()) {
   // Agrupado por category_id, não pelo nome: duas categorias com
   // nomes parecidos deixam de ser fundidas por acaso, e renomear
   // uma categoria passa a refletir-se sozinho no histórico.
+  const tipos = mapaDeTipos();
   const map = new Map();
-  list.filter(t => t.amount < 0).forEach(t => {
-    const key = t.category_id || "sem-categoria";
-    map.set(key, (map.get(key) || 0) + Math.abs(Number(t.amount)));
-  });
+
+  // A poupança fica de fora: não é despesa, e incluí-la faria o total
+  // do gráfico deixar de bater certo com o KPI das Despesas.
+  list
+    .filter(t => t.amount < 0 && tipos.get(t.category_id) !== "saving")
+    .forEach(t => {
+      const key = t.category_id || "sem-categoria";
+      map.set(key, (map.get(key) || 0) + Math.abs(Number(t.amount)));
+    });
 
   return [...map.entries()]
     .map(([id, value]) => ({
@@ -175,12 +203,15 @@ export function groupName(id) {
  */
 export function expensesByGroup(list = currentMonthTransactions()) {
   const grupoDe = new Map(state.categories.map(c => [c.id, c.group_id]));
+  const tipos = mapaDeTipos();
   const map = new Map();
 
-  list.filter(t => t.amount < 0).forEach(t => {
-    const key = grupoDe.get(t.category_id) || "sem-grupo";
-    map.set(key, (map.get(key) || 0) + Math.abs(Number(t.amount)));
-  });
+  list
+    .filter(t => t.amount < 0 && tipos.get(t.category_id) !== "saving")
+    .forEach(t => {
+      const key = grupoDe.get(t.category_id) || "sem-grupo";
+      map.set(key, (map.get(key) || 0) + Math.abs(Number(t.amount)));
+    });
 
   return [...map.entries()]
     .map(([id, value]) => ({
@@ -193,18 +224,28 @@ export function expensesByGroup(list = currentMonthTransactions()) {
 
 /** Série mensal do ano selecionado, para o gráfico de evolução. */
 export function yearlySeries() {
+  const tipos = mapaDeTipos();
   const income = Array(12).fill(0);
   const expense = Array(12).fill(0);
+  const saving = Array(12).fill(0);
+
   state.transactions.forEach(t => {
     if (yearOf(t.value_date) !== state.year) return;
     if (!passaFiltroConta(t)) return;
+
     const m = monthOf(t.value_date);
-    if (t.amount > 0) income[m] += Number(t.amount);
-    else expense[m] += Math.abs(Number(t.amount));
+    const v = Number(t.amount);
+
+    if (tipos.get(t.category_id) === "saving") saving[m] += -v;
+    else if (v > 0) income[m] += v;
+    else expense[m] += Math.abs(v);
   });
+
+  const arredondar = a => a.map(v => Number(v.toFixed(2)));
   return {
-    income: income.map(v => Number(v.toFixed(2))),
-    expense: expense.map(v => Number(v.toFixed(2))),
+    income: arredondar(income),
+    expense: arredondar(expense),
+    saving: arredondar(saving),
   };
 }
 
