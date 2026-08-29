@@ -276,14 +276,24 @@ body {
 .table td { padding: 9px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
 .table tbody tr:hover td { background: var(--hover); }
 
-/* Movimento tratado: fundo neutro em vez de verde — o verde
-   competia com o das receitas na coluna Valor e confundia. A marca
-   de "tratado" fica na barra à esquerda e no botão do visto. */
-.table tbody tr.validated td { background: var(--surface-soft); }
+/* Movimento tratado: recua.
+   O destaque pertence ao que ainda falta rever — são essas linhas que
+   exigem acção. As tratadas ficam esbatidas e com fundo neutro; o
+   verde saiu do fundo porque competia com o das receitas na coluna
+   Valor. A marca de "tratado" fica na barra à esquerda e no visto.
+   Ao passar o rato voltam à opacidade normal, para continuarem
+   legíveis quando é preciso consultá-las. */
+.table tbody tr.validated td {
+  background: var(--surface-soft);
+  opacity: .45;
+}
 .table tbody tr.validated td:first-child {
   box-shadow: inset 3px 0 0 var(--green);
 }
-.table tbody tr.validated:hover td { background: var(--hover); }
+.table tbody tr.validated:hover td {
+  background: var(--hover);
+  opacity: 1;
+}
 
 .cell-date { color: var(--text-soft); font-size: 12px; white-space: nowrap; }
 .cell-valuedate { font-size: 12px; white-space: nowrap; }
