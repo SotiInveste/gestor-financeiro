@@ -579,3 +579,9 @@ body {
 @media (max-width: 560px) {
   .filtro-conta .select { max-width: 140px; }
 }
+
+/* Conta a que o movimento manual vai pertencer, no título do formulário */
+#m-conta-label {
+  font-weight: 400;
+  font-size: 13px;
+}
