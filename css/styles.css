@@ -432,19 +432,33 @@ body {
 }
 .cat-group-head .card-title { margin: 0; flex: 1; }
 
-.cat-rows { display: flex; flex-direction: column; gap: 6px; }
+/* Grelha no ecrã largo, lista no estreito. As categorias sao curtas
+   e um grupo com dez delas ocupava dez linhas sem necessidade. */
+.cat-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 6px;
+}
 
 .cat-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
+  /* O tipo vem daqui, em vez de um rótulo a ocupar espaço. */
+  border-left: 3px solid var(--red);
   border-radius: var(--radius);
   background: var(--surface-soft);
+  min-width: 0;
 }
+.cat-row.receita { border-left-color: var(--green); }
 .cat-row.arquivada { opacity: .55; }
 .cat-row.a-arrastar { opacity: .4; border-style: dashed; }
+
+@media (max-width: 640px) {
+  .cat-rows { grid-template-columns: 1fr; }
+}
 
 .cat-drag {
   cursor: grab;
@@ -455,7 +469,15 @@ body {
 }
 .cat-drag:active { cursor: grabbing; }
 
-.cat-nome { font-size: 14px; font-weight: 500; flex: 1; min-width: 0; }
+.cat-nome {
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .cat-marcas { display: flex; gap: 6px; flex-shrink: 0; }
 
@@ -471,7 +493,12 @@ body {
 .cat-tag.sistema   { background: var(--tint-blue-bg);  color: var(--blue); }
 .cat-tag.arquivada { background: var(--tint-amber-bg); color: var(--amber); }
 
-.cat-uso { flex-shrink: 0; min-width: 64px; text-align: right; }
+.cat-uso {
+  flex-shrink: 0;
+  font-size: 12px;
+  min-width: 20px;
+  text-align: right;
+}
 
 .cat-accoes { display: flex; gap: 6px; flex-shrink: 0; }
 
@@ -587,3 +614,25 @@ body {
   font-weight: 400;
   font-size: 13px;
 }
+
+/* Botões só com ícone, na grelha de categorias */
+.btn-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.btn-icone svg { width: 15px; height: 15px; }
+.btn-icone:hover { background: var(--hover); color: var(--text); }
+.btn-icone:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.btn-icone.perigo:hover { color: var(--red); background: var(--tint-red-bg); }
+
+.cat-accoes { gap: 2px; }
+.btn-icone.ocupado, .btn-icone:disabled { opacity: .4; cursor: default; }
