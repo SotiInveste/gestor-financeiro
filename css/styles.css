@@ -442,8 +442,14 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 10px;
 }
+/* Margem só quando há lista por baixo: um cartão fechado fica compacto. */
+.cat-group.expandido .cat-group-head { margin-bottom: 10px; }
+
+.cat-titulo { cursor: pointer; }
+
+.cat-seta svg { transition: transform .15s ease; }
+.cat-group.expandido .cat-seta svg { transform: rotate(90deg); }
 .cat-group-head .card-title {
   margin: 0;
   flex: 1;
