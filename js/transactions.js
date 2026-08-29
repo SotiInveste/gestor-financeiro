@@ -9,7 +9,7 @@ import {
 import { fmt, shortDate, esc, today } from "./utils.js";
 import {
   fillCategorySelect, suggestKeyword, categoryName,
-  groupedCategories, categoryByName,
+  groupedCategories,
 } from "./categories.js";
 import * as db from "./db.js";
 import { toast, confirmModal, setLoading } from "./ui.js";
@@ -74,10 +74,10 @@ function refreshManualCategorySelect() {
   const atual = sel.value;
   const aindaExiste = state.categories.some(c => c.id === atual);
 
-  fillCategorySelect(
-    sel,
-    aindaExiste ? atual : categoryByName("Poupança Casa")?.id || null,
-  );
+  // Sem escolha válida em curso, fica na primeira da lista — não há
+  // categoria predefinida que sirva para todos os lançamentos.
+  fillCategorySelect(sel, aindaExiste ? atual : null);
+  if (!aindaExiste) sel.selectedIndex = 0;
 }
 
 /**
@@ -452,10 +452,14 @@ export function initManualForm() {
 }
 
 function resetManualForm() {
-  document.getElementById("m-movement-date").value = today();
-  document.getElementById("m-value-date").value = today();
+  document.getElementById("m-date").value = today();
   document.getElementById("m-description").value = "";
   document.getElementById("m-amount").value = "";
+
+  // O seletor de categoria volta ao início da lista, para não
+  // herdar a escolha do lançamento anterior.
+  const cat = document.getElementById("m-category");
+  if (cat) cat.selectedIndex = 0;
   manualType = "expense";
   document.querySelectorAll(".type-btn").forEach(b =>
     b.classList.toggle("active", b.dataset.type === "expense"));
@@ -465,23 +469,24 @@ async function saveManual() {
   const btn = document.getElementById("m-save");
   const description = document.getElementById("m-description").value.trim();
   const rawAmount = parseFloat(document.getElementById("m-amount").value);
-  const movementDate = document.getElementById("m-movement-date").value;
-  const valueDate = document.getElementById("m-value-date").value || movementDate;
+  // Um só campo: a mesma data serve de data do movimento e data
+  // valor. Num lançamento manual não há desfasamento entre as duas.
+  const data = document.getElementById("m-date").value;
   const categoryId = document.getElementById("m-category").value;
   const accountId = document.getElementById("m-account").value || null;
 
   if (!description || !Number.isFinite(rawAmount) || rawAmount === 0) {
     return toast("Preenche a descrição e um valor válido.", "err");
   }
-  if (!movementDate) return toast("Indica a data do movimento.", "err");
+  if (!data) return toast("Indica a data do movimento.", "err");
 
   const amount = manualType === "expense" ? -Math.abs(rawAmount) : Math.abs(rawAmount);
 
   setLoading(btn, true, "A gravar…");
   try {
     const row = await db.insertTransaction({
-      movement_date: movementDate,
-      value_date: valueDate,
+      movement_date: data,
+      value_date: data,
       description,
       note: "",
       category_id: categoryId,
