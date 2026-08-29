@@ -27,15 +27,6 @@ export function renderDashboard() {
   incomeEl.textContent = fmt(totals.income);
   expenseEl.textContent = fmt(totals.expense);
   if (savingEl) savingEl.textContent = fmt(totals.saving);
-
-  // Percentagem de cada rubrica sobre as receitas. Fica junto ao valor
-  // em vez de num cartão à parte: são o mesmo número visto de duas
-  // maneiras, e tê-los separados era repetição.
-  const pct = v => (totals.income ? `${((v / totals.income) * 100).toFixed(0)}%` : "");
-  definirTexto("pct-income", totals.income ? "100%" : "");
-  definirTexto("pct-expense", pct(totals.expense));
-  definirTexto("pct-saving", pct(totals.saving));
-  definirTexto("pct-balance", pct(totals.balance));
   balanceEl.textContent = fmt(totals.balance);
   balanceEl.className = "kpi-value " + (totals.balance >= 0 ? "green" : "red");
 
@@ -76,11 +67,6 @@ export function renderDashboard() {
  * base passa a ser o que saiu — as percentagens continuam a somar
  * 100%, mas de uma pergunta diferente. O rótulo diz qual é.
  */
-function definirTexto(id, texto) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = texto;
-}
-
 function renderDestino(totals) {
   const fatias = [
     { name: "Despesas", value: totals.expense, cor: "#dc2626" },
