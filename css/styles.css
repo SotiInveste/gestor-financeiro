@@ -11,9 +11,6 @@
   --border-dash: #d0ccc5;
   --border-strong: #d1d5db;
   --hover: #fafaf9;
-  /* Fundo da linha já tratada: recua sempre face ao --surface,
-     por isso é mais escuro no tema escuro e mais cinzento no claro. */
-  --row-done: #f6f7f9;
 
   --text: #1a1a1a;
   --text-soft: #666666;
@@ -53,7 +50,6 @@
   --border-dash: #3f434f;
   --border-strong: #454a57;
   --hover: #23262e;
-  --row-done: #191b21;
 
   --text: #e9e7e4;
   --text-soft: #a8adb8;
@@ -280,37 +276,9 @@ body {
 .table td { padding: 9px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
 .table tbody tr:hover td { background: var(--hover); }
 
-/* ═══ Estado de tratamento ═══
-   O sinal está na margem esquerda, não no fundo.
-
-   Uma faixa de cor no início da linha percorre-se com o olho de alto
-   a baixo — a tabela ganha uma barra de estado contínua. Uma
-   diferença de fundo, em tabelas densas, dissolve-se entre as bordas
-   e o hover; foi por aí que se tentou primeiro, e para se notar era
-   preciso escurecer tanto que a leitura sofria.
-
-   Âmbar = por tratar. Verde = tratado. O fundo faz agora só um
-   reforço discreto, e o texto das tratadas recua. */
-.table tbody tr td:first-child {
-  box-shadow: inset 4px 0 0 var(--amber);
-}
-
-.table tbody tr.validated td:first-child {
-  box-shadow: inset 4px 0 0 var(--green);
-}
-.table tbody tr.validated td {
-  background: var(--row-done);
-  border-bottom-color: var(--row-done);
-  color: var(--muted);
-}
-
-/* Os montantes mantêm a cor: a coluna Valor tem de continuar a poder
-   ser percorrida sem interrupções. Especificidade suficiente para
-   vencer a regra acima. */
-.table tbody tr.validated td.cell-amount.green { color: var(--green); }
-.table tbody tr.validated td.cell-amount.red { color: var(--red); }
-
-.table tbody tr.validated:hover td { background: var(--hover); }
+.table tbody tr.validated { background: var(--tint-green-bg); }
+.table tbody tr:hover td { background: var(--hover); }
+.table tbody tr.validated:hover td { background: var(--tint-green-strong); }
 
 .cell-date { color: var(--text-soft); font-size: 12px; white-space: nowrap; }
 .cell-valuedate { font-size: 12px; white-space: nowrap; }
