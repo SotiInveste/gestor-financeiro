@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=25">
+  <link rel="stylesheet" href="css/styles.css?v=26">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -105,6 +105,16 @@
         </div>
 
         <div id="dashboard-charts" class="chart-grid">
+          <div class="card card-wide">
+            <h2 class="card-title">Destino do dinheiro</h2>
+            <div class="destino-wrap">
+              <div class="chart-wrap destino-chart"><canvas id="chart-destino"></canvas></div>
+              <div class="destino-lado">
+                <div id="top-destino" class="top-list"></div>
+                <p id="destino-base" class="muted"></p>
+              </div>
+            </div>
+          </div>
           <div class="card">
             <h2 class="card-title">Despesas por grupo</h2>
             <div class="chart-wrap"><canvas id="chart-groups"></canvas></div>
