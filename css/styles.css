@@ -227,10 +227,10 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 12px;
+  gap: 2px;
+  padding: 10px;
 }
-.kpi-donut { width: 100%; height: 150px; }
+.kpi-donut { width: 100%; height: 118px; }
 #destino-base { font-size: 11px; margin: 0; text-align: center; }
 
 
@@ -240,9 +240,11 @@ body {
   .kpi-grid { grid-template-columns: repeat(3, 1fr); }
   .kpi-chart { grid-column: 1 / 4; grid-row: auto; }
 }
-.kpi { margin-bottom: 0; }
-.kpi-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-.kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -1px; }
+/* Mais baixos que os restantes cartões: são cinco blocos no topo e
+   a altura somava-se. O donut acompanha, para a fila fechar certa. */
+.kpi { margin-bottom: 0; padding: 14px 18px; }
+.kpi-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; }
+.kpi-value { font-size: 22px; font-weight: 700; letter-spacing: -1px; }
 
 .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .chart-wrap { position: relative; height: 240px; }
@@ -407,7 +409,7 @@ body {
   .kpi-grid { grid-template-columns: 1fr; gap: 10px; }
   .kpi-saldo, .kpi-chart { grid-column: 1; grid-row: auto; }
   .kpi-donut { height: 170px; }
-  .kpi-value { font-size: 22px; }
+  .kpi-value { font-size: 20px; }
   .chart-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr 1fr; }
   .form-grid .col-2 { grid-column: span 2; }
