@@ -563,9 +563,15 @@ function ligarArrasto(row) {
     e.dataTransfer.effectAllowed = "move";
   };
 
-  row.ondragend = () => {
+  // A gravação é feita aqui, não no ondrop: o drop só dispara quando
+  // se solta em cima de outra linha. Soltar num espaço vazio deixava
+  // o DOM reordenado mas nada gravado, e o render seguinte repunha a
+  // ordem antiga vinda do sort_order.
+  row.ondragend = async () => {
     row.classList.remove("a-arrastar");
+    const lista = row.parentNode;
     arrastada = null;
+    await gravarOrdem(lista);
   };
 
   row.ondragover = e => {
@@ -586,10 +592,9 @@ function ligarArrasto(row) {
     row.parentNode.insertBefore(arrastada, antes ? row : row.nextSibling);
   };
 
-  row.ondrop = async e => {
-    e.preventDefault();
-    await gravarOrdem(row.parentNode);
-  };
+  // Só evita o comportamento por omissão do browser; quem grava é o
+  // ondragend.
+  row.ondrop = e => e.preventDefault();
 }
 
 function ligarArrastoGrupo(bloco) {
@@ -601,10 +606,12 @@ function ligarArrastoGrupo(bloco) {
     e.dataTransfer.effectAllowed = "move";
   };
 
-  bloco.ondragend = () => {
+  bloco.ondragend = async () => {
     bloco.classList.remove("a-arrastar");
     bloco.draggable = false;
+    const lista = bloco.parentNode;
     grupoArrastado = null;
+    await gravarOrdemGrupos(lista);
   };
 
   bloco.ondragover = e => {
@@ -622,11 +629,7 @@ function ligarArrastoGrupo(bloco) {
     bloco.parentNode.insertBefore(grupoArrastado, antes ? bloco : bloco.nextSibling);
   };
 
-  bloco.ondrop = async e => {
-    if (!grupoArrastado) return;
-    e.preventDefault();
-    await gravarOrdemGrupos(bloco.parentNode);
-  };
+  bloco.ondrop = e => e.preventDefault();
 }
 
 async function gravarOrdemGrupos(lista) {
