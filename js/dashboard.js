@@ -20,11 +20,13 @@ export function renderDashboard() {
   // ─── KPIs ───
   const incomeEl = document.getElementById("kpi-income");
   const expenseEl = document.getElementById("kpi-expense");
+  const savingEl = document.getElementById("kpi-saving");
   const balanceEl = document.getElementById("kpi-balance");
   if (!incomeEl || !expenseEl || !balanceEl) return; // guarda defensiva
 
   incomeEl.textContent = fmt(totals.income);
   expenseEl.textContent = fmt(totals.expense);
+  if (savingEl) savingEl.textContent = fmt(totals.saving);
   balanceEl.textContent = fmt(totals.balance);
   balanceEl.className = "kpi-value " + (totals.balance >= 0 ? "green" : "red");
 
@@ -146,6 +148,7 @@ function renderEvolutionChart() {
       datasets: [
         { label: "Receitas", data: series.income, backgroundColor: "#16a34a", borderRadius: 4 },
         { label: "Despesas", data: series.expense, backgroundColor: "#dc2626", borderRadius: 4 },
+        { label: "Poupança", data: series.saving, backgroundColor: "#2563eb", borderRadius: 4 },
       ],
     },
     options: {
