@@ -276,24 +276,27 @@ body {
 .table td { padding: 9px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
 .table tbody tr:hover td { background: var(--hover); }
 
-/* Movimento tratado: recua.
-   O destaque pertence ao que ainda falta rever — são essas linhas que
-   exigem acção. As tratadas ficam esbatidas e com fundo neutro; o
-   verde saiu do fundo porque competia com o das receitas na coluna
-   Valor. A marca de "tratado" fica na barra à esquerda e no visto.
-   Ao passar o rato voltam à opacidade normal, para continuarem
-   legíveis quando é preciso consultá-las. */
+/* Movimento tratado: o texto recua, as marcas ficam.
+   O destaque pertence ao que ainda falta rever.
+
+   Não se usa opacity: apagava tudo dentro da célula, incluindo a
+   barra verde e o visto — e são eles que identificam a linha de
+   relance. Esbate-se só a cor do texto, que é o que se quer deixar
+   de ler. Os montantes mantêm a cor para a coluna Valor continuar
+   a poder ser percorrida de alto a baixo. */
 .table tbody tr.validated td {
   background: var(--surface-soft);
-  opacity: .45;
+  color: var(--muted);
 }
 .table tbody tr.validated td:first-child {
-  box-shadow: inset 3px 0 0 var(--green);
+  box-shadow: inset 4px 0 0 var(--green);
 }
-.table tbody tr.validated:hover td {
-  background: var(--hover);
-  opacity: 1;
-}
+
+/* Especificidade suficiente para vencer a regra acima. */
+.table tbody tr.validated td.cell-amount.green { color: var(--green); }
+.table tbody tr.validated td.cell-amount.red { color: var(--red); }
+
+.table tbody tr.validated:hover td { background: var(--hover); }
 
 .cell-date { color: var(--text-soft); font-size: 12px; white-space: nowrap; }
 .cell-valuedate { font-size: 12px; white-space: nowrap; }
