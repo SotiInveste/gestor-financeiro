@@ -122,12 +122,66 @@ export function renderCategoriesPage() {
   });
 }
 
+// ═══ Ícones ═══
+//
+// SVG em vez de texto: os símbolos unicode equivalentes desenham-se
+// de forma diferente em cada sistema, e alguns nem existem. O traço
+// segue o mesmo estilo do ícone de tema no index.html.
+
+const SVG_ATTRS =
+  'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+
+const ICONES = {
+  editar: `<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>`,
+  arquivar: `<rect x="3" y="4" width="18" height="4" rx="1"/>` +
+            `<path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/>`,
+  reativar: `<rect x="3" y="4" width="18" height="4" rx="1"/>` +
+            `<path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/>` +
+            `<path d="M12 17v-5"/><path d="M9.5 14.5 12 12l2.5 2.5"/>`,
+  apagar: `<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>` +
+          `<path d="M6 6v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6"/><path d="M10 11v6M14 11v6"/>`,
+};
+
+/**
+ * Botão só com ícone.
+ *
+ * O title e o aria-label são obrigatórios: sem texto visível, são a
+ * única forma de saber o que o botão faz.
+ */
+function botaoIcone(tipo, titulo, aoClicar, classe = "") {
+  const b = document.createElement("button");
+  b.className = ("btn-icone " + classe).trim();
+  b.innerHTML = `<svg ${SVG_ATTRS}>${ICONES[tipo]}</svg>`;
+  b.title = titulo;
+  b.setAttribute("aria-label", titulo);
+  b.onclick = () => aoClicar(b);
+  return b;
+}
+
+/**
+ * Estado de ocupado para botões de ícone.
+ *
+ * O setLoading do ui.js troca o textContent, o que aqui apagaria o
+ * SVG. Basta desativar e esbater — o botão é recriado no render
+ * seguinte de qualquer forma.
+ */
+function ocupado(btn, sim) {
+  if (!btn) return;
+  btn.disabled = sim;
+  btn.classList.toggle("ocupado", sim);
+}
+
 function linhaCategoria(c, nMovimentos) {
   const row = document.createElement("div");
-  row.className = "cat-row" + (c.archived_at ? " arquivada" : "");
+  // O tipo deixou de ter rótulo: passa a ser a cor da barra lateral,
+  // a mesma convenção da coluna Valor (verde receita, vermelho despesa).
+  row.className = "cat-row " + (c.kind === "income" ? "receita" : "despesa") +
+    (c.archived_at ? " arquivada" : "");
   row.draggable = true;
   row.dataset.id = c.id;
   row.dataset.group = c.group_id;
+  row.title = c.kind === "income" ? "Receita" : "Despesa";
 
   const pega = document.createElement("span");
   pega.className = "cat-drag";
@@ -137,48 +191,37 @@ function linhaCategoria(c, nMovimentos) {
   const nome = document.createElement("span");
   nome.className = "cat-nome";
   nome.textContent = c.name;
-
-  const marcas = document.createElement("span");
-  marcas.className = "cat-marcas";
-  marcas.innerHTML =
-    `<span class="cat-tag ${c.kind}">${c.kind === "income" ? "receita" : "despesa"}</span>` +
-    (c.is_system ? `<span class="cat-tag sistema">sistema</span>` : "") +
-    (c.archived_at ? `<span class="cat-tag arquivada">arquivada</span>` : "");
+  if (c.is_system) nome.title = "Categoria de sistema — não pode ser apagada";
 
   const uso = document.createElement("span");
   uso.className = "muted cat-uso";
-  uso.textContent = `${nMovimentos} mov.`;
+  uso.textContent = nMovimentos;
+  uso.title = `${nMovimentos} movimento${nMovimentos === 1 ? "" : "s"}`;
 
   const accoes = document.createElement("span");
   accoes.className = "cat-accoes";
 
-  const btnEditar = document.createElement("button");
-  btnEditar.className = "btn btn-ghost btn-sm";
-  btnEditar.textContent = "Editar";
-  btnEditar.onclick = () => editarCategoria(c, btnEditar);
-  accoes.appendChild(btnEditar);
+  accoes.appendChild(
+    botaoIcone("editar", "Editar", b => editarCategoria(c, b)));
 
   // A categoria de sistema é o destino por omissão do importador:
   // não pode ser arquivada nem apagada.
   if (!c.is_system) {
-    const btnArquivar = document.createElement("button");
-    btnArquivar.className = "btn btn-outline btn-sm";
-    btnArquivar.textContent = c.archived_at ? "Reativar" : "Arquivar";
-    btnArquivar.onclick = () => alternarArquivo(c, btnArquivar);
-    accoes.appendChild(btnArquivar);
+    accoes.appendChild(botaoIcone(
+      c.archived_at ? "reativar" : "arquivar",
+      c.archived_at ? "Reativar" : "Arquivar",
+      b => alternarArquivo(c, b),
+    ));
 
     // Apagar só aparece quando nada aponta para a categoria. Deixá-lo
     // sempre visível convidaria ao engano; a acção normal é arquivar.
     if (nMovimentos === 0) {
-      const btnApagar = document.createElement("button");
-      btnApagar.className = "btn btn-ghost btn-sm perigo";
-      btnApagar.textContent = "Apagar";
-      btnApagar.onclick = () => apagarCategoria(c, btnApagar);
-      accoes.appendChild(btnApagar);
+      accoes.appendChild(
+        botaoIcone("apagar", "Apagar", b => apagarCategoria(c, b), "perigo"));
     }
   }
 
-  row.append(pega, nome, marcas, uso, accoes);
+  row.append(pega, nome, uso, accoes);
   ligarArrasto(row);
   return row;
 }
@@ -251,7 +294,7 @@ async function editarCategoria(c, btn) {
   if (res.tipo !== c.kind) patch.kind = res.tipo;
   if (!Object.keys(patch).length) return;
 
-  setLoading(btn, true, "A gravar…");
+  ocupado(btn, true);
   try {
     await db.updateCategory(c.id, patch);
     await recarregar();
@@ -260,7 +303,7 @@ async function editarCategoria(c, btn) {
     console.error("Erro ao atualizar categoria:", err);
     toast(mensagemErro(err, res.nome.trim()), "err");
   } finally {
-    setLoading(btn, false);
+    ocupado(btn, false);
   }
 }
 
@@ -277,7 +320,7 @@ async function alternarArquivo(c, btn) {
     if (!ok) return;
   }
 
-  setLoading(btn, true, "…");
+  ocupado(btn, true);
   try {
     await db.updateCategory(c.id, {
       archived_at: arquivar ? new Date().toISOString() : null,
@@ -288,12 +331,12 @@ async function alternarArquivo(c, btn) {
     console.error("Erro ao arquivar:", err);
     toast("Não foi possível concluir.", "err");
   } finally {
-    setLoading(btn, false);
+    ocupado(btn, false);
   }
 }
 
 async function apagarCategoria(c, btn) {
-  setLoading(btn, true, "…");
+  ocupado(btn, true);
 
   let uso;
   try {
@@ -303,12 +346,12 @@ async function apagarCategoria(c, btn) {
   } catch (err) {
     console.error("Erro ao verificar utilização:", err);
     toast("Não foi possível verificar se a categoria está em uso.", "err");
-    setLoading(btn, false);
+    ocupado(btn, false);
     return;
   }
 
   if (uso.movimentos > 0 || uso.regras > 0) {
-    setLoading(btn, false);
+    ocupado(btn, false);
     const partes = [];
     if (uso.movimentos) partes.push(`${uso.movimentos} movimento${uso.movimentos === 1 ? "" : "s"}`);
     if (uso.regras) partes.push(`${uso.regras} regra${uso.regras === 1 ? "" : "s"}`);
@@ -329,7 +372,7 @@ async function apagarCategoria(c, btn) {
           "e o código não volta a ser reutilizado.",
     okLabel: "Apagar",
   });
-  if (!ok) { setLoading(btn, false); return; }
+  if (!ok) { ocupado(btn, false); return; }
 
   try {
     await db.deleteCategory(c.id);
@@ -339,7 +382,7 @@ async function apagarCategoria(c, btn) {
     console.error("Erro ao apagar categoria:", err);
     toast("Não foi possível apagar a categoria.", "err");
   } finally {
-    setLoading(btn, false);
+    ocupado(btn, false);
   }
 }
 
@@ -503,11 +546,16 @@ function ligarArrasto(row) {
     if (arrastada.dataset.group !== row.dataset.group) return;
     e.preventDefault();
 
-    const meio = row.getBoundingClientRect().top + row.offsetHeight / 2;
-    row.parentNode.insertBefore(
-      arrastada,
-      e.clientY < meio ? row : row.nextSibling,
-    );
+    // Em grelha os vizinhos estão ao lado, não por cima; em lista
+    // estão por cima. O eixo é escolhido pela largura da célula
+    // face à do contentor.
+    const r = row.getBoundingClientRect();
+    const emColunas = r.width < row.parentNode.clientWidth - 20;
+    const antes = emColunas
+      ? e.clientX < r.left + r.width / 2
+      : e.clientY < r.top + r.height / 2;
+
+    row.parentNode.insertBefore(arrastada, antes ? row : row.nextSibling);
   };
 
   row.ondrop = async e => {
