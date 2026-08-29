@@ -158,6 +158,39 @@ export function catName(id) {
   return state.categories.find(c => c.id === id)?.name || "—";
 }
 
+/** Nome de um grupo, com o emoji à frente quando existe. */
+export function groupName(id) {
+  if (!id) return "Sem grupo";
+  const g = state.categoryGroups.find(x => x.id === id);
+  if (!g) return "—";
+  return (g.emoji ? g.emoji + " " + g.name : g.name).trim();
+}
+
+/**
+ * Despesas agregadas por grupo, ordenadas.
+ *
+ * O movimento aponta para a categoria, não para o grupo — daí o mapa
+ * de categoria para grupo, construído uma vez em vez de uma procura
+ * por cada movimento.
+ */
+export function expensesByGroup(list = currentMonthTransactions()) {
+  const grupoDe = new Map(state.categories.map(c => [c.id, c.group_id]));
+  const map = new Map();
+
+  list.filter(t => t.amount < 0).forEach(t => {
+    const key = grupoDe.get(t.category_id) || "sem-grupo";
+    map.set(key, (map.get(key) || 0) + Math.abs(Number(t.amount)));
+  });
+
+  return [...map.entries()]
+    .map(([id, value]) => ({
+      id,
+      name: groupName(id === "sem-grupo" ? null : id),
+      value: Number(value.toFixed(2)),
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
 /** Série mensal do ano selecionado, para o gráfico de evolução. */
 export function yearlySeries() {
   const income = Array(12).fill(0);
