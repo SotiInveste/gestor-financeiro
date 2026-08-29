@@ -9,7 +9,7 @@ import {
 import { fmt, shortDate, esc, today } from "./utils.js";
 import {
   fillCategorySelect, suggestKeyword, categoryName,
-  groupedCategories,
+  groupedCategories, categoryById,
 } from "./categories.js";
 import * as db from "./db.js";
 import { toast, confirmModal, setLoading } from "./ui.js";
@@ -194,6 +194,12 @@ function footHTML(totals) {
     <td colspan="4"></td>
     <td></td>
     <td class="foot-value red">${fmt(totals.expense)}<div class="muted">despesas</div></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td colspan="4"></td>
+    <td></td>
+    <td class="foot-value blue">${fmt(totals.saving)}<div class="muted">poupança</div></td>
     <td></td>
   </tr>
   <tr class="foot-balance">
@@ -453,14 +459,30 @@ export function initManualForm() {
   };
 
   document.querySelectorAll(".type-btn").forEach(btn => {
-    btn.onclick = () => {
-      manualType = btn.dataset.type;
-      document.querySelectorAll(".type-btn").forEach(b =>
-        b.classList.toggle("active", b.dataset.type === manualType));
-    };
+    btn.onclick = () => definirTipo(btn.dataset.type);
   });
 
+  // O que classifica um movimento é o tipo da CATEGORIA, não este
+  // botão — que só decide o sinal. Fazer o botão seguir a categoria
+  // evita o caso incoerente de gravar numa categoria de poupança com
+  // o botão em despesa. Continua a poder ser mudado a seguir, para
+  // casos legítimos como um levantamento da poupança.
+  const catSel = document.getElementById("m-category");
+  if (catSel) {
+    catSel.onchange = () => {
+      const c = categoryById(catSel.value);
+      if (c) definirTipo(c.kind);
+    };
+  }
+
   document.getElementById("m-save").onclick = saveManual;
+}
+
+/** Marca o tipo escolhido e acende o botão correspondente. */
+function definirTipo(tipo) {
+  manualType = tipo;
+  document.querySelectorAll(".type-btn").forEach(b =>
+    b.classList.toggle("active", b.dataset.type === tipo));
 }
 
 function resetManualForm() {
@@ -472,9 +494,7 @@ function resetManualForm() {
   // herdar a escolha do lançamento anterior.
   const cat = document.getElementById("m-category");
   if (cat) cat.selectedIndex = 0;
-  manualType = "expense";
-  document.querySelectorAll(".type-btn").forEach(b =>
-    b.classList.toggle("active", b.dataset.type === "expense"));
+  definirTipo("expense");
 }
 
 async function saveManual() {
@@ -494,7 +514,8 @@ async function saveManual() {
   if (!data) return toast("Indica a data do movimento.", "err");
   if (!accountId) return toast("Não há nenhuma conta selecionada.", "err");
 
-  const amount = manualType === "expense" ? -Math.abs(rawAmount) : Math.abs(rawAmount);
+  // Poupança é saída de conta, tal como a despesa. Só a receita entra.
+  const amount = manualType === "income" ? Math.abs(rawAmount) : -Math.abs(rawAmount);
 
   setLoading(btn, true, "A gravar…");
   try {
