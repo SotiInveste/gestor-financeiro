@@ -422,23 +422,41 @@ body {
   cursor: pointer;
 }
 
-.cat-group { margin-bottom: 16px; }
+/* São os grupos que vão para grelha: é aqui que se corta o scroll.
+   align-items: start impede que os cartões estiquem todos à altura
+   do maior, que é o que deixaria buracos entre eles. */
+#categorias-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.cat-group { margin-bottom: 0; }
+
+@media (max-width: 700px) {
+  #categorias-lista { grid-template-columns: 1fr; }
+}
 
 .cat-group-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.cat-group-head .card-title { margin: 0; flex: 1; }
-
-/* Grelha no ecrã largo, lista no estreito. As categorias sao curtas
-   e um grupo com dez delas ocupava dez linhas sem necessidade. */
-.cat-rows {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 6px;
+  margin-bottom: 10px;
 }
+.cat-group-head .card-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Dentro de um grupo as categorias voltam a lista: o cartão é
+   estreito e uma grelha dentro de outra não ganhava nada. */
+.cat-rows { display: flex; flex-direction: column; gap: 6px; }
 
 .cat-row {
   display: flex;
@@ -456,9 +474,7 @@ body {
 .cat-row.arquivada { opacity: .55; }
 .cat-row.a-arrastar { opacity: .4; border-style: dashed; }
 
-@media (max-width: 640px) {
-  .cat-rows { grid-template-columns: 1fr; }
-}
+
 
 .cat-drag {
   cursor: grab;
