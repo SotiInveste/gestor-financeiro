@@ -13,7 +13,7 @@
   --hover: #fafaf9;
   /* Fundo da linha já tratada: recua sempre face ao --surface,
      por isso é mais escuro no tema escuro e mais cinzento no claro. */
-  --row-done: #e6e8eb;
+  --row-done: #f6f7f9;
 
   --text: #1a1a1a;
   --text-soft: #666666;
@@ -53,7 +53,7 @@
   --border-dash: #3f434f;
   --border-strong: #454a57;
   --hover: #23262e;
-  --row-done: #0e0f12;
+  --row-done: #191b21;
 
   --text: #e9e7e4;
   --text-soft: #a8adb8;
@@ -280,26 +280,33 @@ body {
 .table td { padding: 9px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
 .table tbody tr:hover td { background: var(--hover); }
 
-/* Movimento tratado: o texto recua, as marcas ficam.
-   O destaque pertence ao que ainda falta rever.
+/* ═══ Estado de tratamento ═══
+   O sinal está na margem esquerda, não no fundo.
 
-   Não se usa opacity: apagava tudo dentro da célula, incluindo a
-   barra verde e o visto — e são eles que identificam a linha de
-   relance. Esbate-se só a cor do texto, que é o que se quer deixar
-   de ler. Os montantes mantêm a cor para a coluna Valor continuar
-   a poder ser percorrida de alto a baixo. */
-.table tbody tr.validated td {
-  background: var(--row-done);
-  color: var(--muted);
+   Uma faixa de cor no início da linha percorre-se com o olho de alto
+   a baixo — a tabela ganha uma barra de estado contínua. Uma
+   diferença de fundo, em tabelas densas, dissolve-se entre as bordas
+   e o hover; foi por aí que se tentou primeiro, e para se notar era
+   preciso escurecer tanto que a leitura sofria.
+
+   Âmbar = por tratar. Verde = tratado. O fundo faz agora só um
+   reforço discreto, e o texto das tratadas recua. */
+.table tbody tr td:first-child {
+  box-shadow: inset 4px 0 0 var(--amber);
 }
-.table tbody tr.validated td {
-  border-bottom-color: var(--row-done);
-}
+
 .table tbody tr.validated td:first-child {
   box-shadow: inset 4px 0 0 var(--green);
 }
+.table tbody tr.validated td {
+  background: var(--row-done);
+  border-bottom-color: var(--row-done);
+  color: var(--muted);
+}
 
-/* Especificidade suficiente para vencer a regra acima. */
+/* Os montantes mantêm a cor: a coluna Valor tem de continuar a poder
+   ser percorrida sem interrupções. Especificidade suficiente para
+   vencer a regra acima. */
 .table tbody tr.validated td.cell-amount.green { color: var(--green); }
 .table tbody tr.validated td.cell-amount.red { color: var(--red); }
 
