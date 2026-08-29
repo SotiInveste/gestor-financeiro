@@ -209,14 +209,18 @@ body {
 }
 .select::placeholder { color: var(--faint); }
 
-/* Donut + os quatro KPIs na mesma fila: cada fatia corresponde a um
-   cartão, e as cores fazem a ligação sem precisar de legenda. */
+/* Receitas, despesas e poupança em cima; saldo a ocupar as três
+   colunas por baixo; o donut à direita, a acompanhar as duas alturas.
+   As quatro colunas em 1fr 1fr 1fr 1.5fr dão ao donut um terço da
+   largura, que é o peso que a leitura visual merece. */
 .kpi-grid {
   display: grid;
-  grid-template-columns: 180px repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr) 1.5fr;
   gap: 16px;
   margin-bottom: 16px;
 }
+.kpi-saldo { grid-column: 1 / 4; }
+.kpi-chart { grid-column: 4; grid-row: 1 / 3; }
 
 .kpi-chart {
   display: flex;
@@ -226,14 +230,15 @@ body {
   gap: 4px;
   padding: 12px;
 }
-.kpi-donut { width: 100%; height: 110px; }
+.kpi-donut { width: 100%; height: 150px; }
 #destino-base { font-size: 11px; margin: 0; text-align: center; }
 
-.kpi-pct { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-@media (max-width: 1100px) {
-  .kpi-grid { grid-template-columns: 160px repeat(2, 1fr); }
-  .kpi-chart { grid-row: span 2; }
+/* Sem largura para o donut ao lado, ele passa para baixo, a toda a
+   largura, e a estrutura dos KPIs mantém-se. */
+@media (max-width: 900px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .kpi-chart { grid-column: 1 / 4; grid-row: auto; }
 }
 .kpi { margin-bottom: 0; }
 .kpi-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
@@ -399,9 +404,9 @@ body {
   .header-balance { display: none; }
   .nav { width: 100%; overflow-x: auto; }
   .main { padding: 20px 14px 50px; }
-  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .kpi-chart { grid-column: span 2; grid-row: auto; }
-  .kpi-donut { height: 140px; }
+  .kpi-grid { grid-template-columns: 1fr; gap: 10px; }
+  .kpi-saldo, .kpi-chart { grid-column: 1; grid-row: auto; }
+  .kpi-donut { height: 170px; }
   .kpi-value { font-size: 22px; }
   .chart-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr 1fr; }
