@@ -13,7 +13,7 @@
   --hover: #fafaf9;
   /* Fundo da linha já tratada: recua sempre face ao --surface,
      por isso é mais escuro no tema escuro e mais cinzento no claro. */
-  --row-done: #eef0f2;
+  --row-done: #e6e8eb;
 
   --text: #1a1a1a;
   --text-soft: #666666;
@@ -53,7 +53,7 @@
   --border-dash: #3f434f;
   --border-strong: #454a57;
   --hover: #23262e;
-  --row-done: #141519;
+  --row-done: #0e0f12;
 
   --text: #e9e7e4;
   --text-soft: #a8adb8;
@@ -291,6 +291,9 @@ body {
 .table tbody tr.validated td {
   background: var(--row-done);
   color: var(--muted);
+}
+.table tbody tr.validated td {
+  border-bottom-color: var(--row-done);
 }
 .table tbody tr.validated td:first-child {
   box-shadow: inset 4px 0 0 var(--green);
