@@ -11,7 +11,7 @@
 
 import * as db from "./db.js";
 import { state } from "./state.js";
-import { groupedCategories } from "./categories.js";
+import { groupedCategories, TIPOS, classeTipo, rotuloTipo } from "./categories.js";
 import { toast, confirmModal } from "./ui.js";
 import { esc } from "./utils.js";
 
@@ -202,14 +202,14 @@ function ocupado(btn, sim) {
 
 function linhaCategoria(c, nMovimentos) {
   const row = document.createElement("div");
-  // O tipo deixou de ter rótulo: passa a ser a cor da barra lateral,
-  // a mesma convenção da coluna Valor (verde receita, vermelho despesa).
-  row.className = "cat-row " + (c.kind === "income" ? "receita" : "despesa") +
+  // O tipo não tem rótulo: é a cor da barra lateral. Verde receita,
+  // vermelho despesa, azul poupança.
+  row.className = "cat-row " + classeTipo(c.kind) +
     (c.archived_at ? " arquivada" : "");
   row.draggable = true;
   row.dataset.id = c.id;
   row.dataset.group = c.group_id;
-  row.title = c.kind === "income" ? "Receita" : "Despesa";
+  row.title = rotuloTipo(c.kind);
 
   const pega = document.createElement("span");
   pega.className = "cat-drag";
@@ -277,10 +277,7 @@ async function criarCategoria() {
        <label>Grupo</label>
        <select data-field="grupo">${opcoesGrupo()}</select>
        <label>Tipo</label>
-       <select data-field="tipo">
-         <option value="expense">Despesa</option>
-         <option value="income">Receita</option>
-       </select>`,
+       <select data-field="tipo">${opcoesTipo()}</select>`,
   });
   if (!res || !res.nome?.trim()) return;
 
@@ -309,10 +306,7 @@ async function editarCategoria(c, btn) {
        <label>Grupo</label>
        <select data-field="grupo">${opcoesGrupo(c.group_id)}</select>
        <label>Tipo</label>
-       <select data-field="tipo">
-         <option value="expense"${c.kind === "expense" ? " selected" : ""}>Despesa</option>
-         <option value="income"${c.kind === "income" ? " selected" : ""}>Receita</option>
-       </select>`,
+       <select data-field="tipo">${opcoesTipo(c.kind)}</select>`,
   });
   if (!res || !res.nome?.trim()) return;
 
@@ -680,6 +674,13 @@ async function gravarOrdem(lista) {
 }
 
 // ═══ Auxiliares ═══
+
+/** Opções dos três tipos, a partir da definição única em categories.js. */
+function opcoesTipo(selecionado = "expense") {
+  return Object.entries(TIPOS).map(([valor, { rotulo }]) =>
+    `<option value="${valor}"${valor === selecionado ? " selected" : ""}>${rotulo}</option>`
+  ).join("");
+}
 
 function opcoesGrupo(selectedId) {
   return [...state.categoryGroups]
