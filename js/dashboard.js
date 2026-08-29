@@ -11,7 +11,7 @@ import { themeColors } from "./theme.js";
 
 // Guardados para poderem ser destruídos antes de repintar: o Chart.js
 // não substitui um gráfico existente no mesmo canvas.
-const graficos = { categorias: null, grupos: null, evolucao: null };
+const graficos = { destino: null, categorias: null, grupos: null, evolucao: null };
 
 export function renderDashboard() {
   const list = currentMonthTransactions();
@@ -41,6 +41,8 @@ export function renderDashboard() {
   if (yearLabel) yearLabel.textContent = state.year;
 
   if (!isEmpty) {
+    renderDestino(totals);
+
     const porCategoria = expensesByCategory(list);
     const porGrupo = expensesByGroup(list);
 
@@ -54,20 +56,55 @@ export function renderDashboard() {
 }
 
 /**
+ * Para onde foi o dinheiro do mês.
+ *
+ * A base dos 100% são as receitas, não a soma de tudo: somar receitas
+ * com saídas daria um total sem significado, e as percentagens não
+ * responderiam a nada. Assim lê-se "das receitas, X% foi para
+ * despesas".
+ *
+ * Num mês em que se gastou mais do que se recebeu não há sobra, e a
+ * base passa a ser o que saiu — as percentagens continuam a somar
+ * 100%, mas de uma pergunta diferente. O rótulo diz qual é.
+ */
+function renderDestino(totals) {
+  const fatias = [
+    { name: "Despesas", value: totals.expense, cor: "#dc2626" },
+    { name: "Poupança", value: totals.saving, cor: "#c9a227" },
+    { name: "Sobra", value: Math.max(0, totals.balance), cor: "#16a34a" },
+  ].filter(f => f.value > 0);
+
+  const total = fatias.reduce((s, f) => s + f.value, 0);
+
+  renderDonut("destino", "chart-destino", null, fatias, total);
+  renderTopList("top-destino", fatias, total);
+
+  const base = document.getElementById("destino-base");
+  if (base) {
+    base.textContent = totals.balance >= 0
+      ? `100% = ${fmt(totals.income)} de receitas`
+      : `Gastou-se mais do que se recebeu — 100% = ${fmt(total)} de saídas`;
+  }
+}
+
+/**
  * Donut de despesas. Serve categorias e grupos — só mudam os dados e
  * os elementos onde desenha.
  */
 function renderDonut(chave, canvasId, legendId, data, totalExpense) {
   const canvas = document.getElementById(canvasId);
-  const legend = document.getElementById(legendId);
-  if (!canvas || !legend) return;
+  if (!canvas) return;
+
+  // A legenda é opcional: o cartão do destino do dinheiro usa uma
+  // lista em vez dela.
+  const legend = legendId ? document.getElementById(legendId) : null;
 
   if (graficos[chave]) graficos[chave].destroy();
 
   const colors = themeColors();
 
   if (!data.length) {
-    legend.innerHTML = '<span class="muted">Sem despesas neste mês.</span>';
+    if (legend) legend.innerHTML = '<span class="muted">Sem dados neste mês.</span>';
     return;
   }
 
@@ -77,7 +114,10 @@ function renderDonut(chave, canvasId, legendId, data, totalExpense) {
       labels: data.map(d => d.name),
       datasets: [{
         data: data.map(d => d.value),
-        backgroundColor: data.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+        // Uma fatia pode trazer cor própria: no destino do dinheiro
+        // cada uma tem significado fixo, e a paleta rotativa trocaria
+        // as cores conforme houvesse ou não poupança nesse mês.
+        backgroundColor: data.map((d, i) => d.cor || CHART_COLORS[i % CHART_COLORS.length]),
         borderWidth: 2,
         borderColor: colors.surface,
       }],
@@ -101,9 +141,10 @@ function renderDonut(chave, canvasId, legendId, data, totalExpense) {
   });
 
   // Legenda com percentagens
+  if (!legend) return;
   legend.innerHTML = data.slice(0, 10).map((d, i) => {
     const pct = totalExpense ? ((d.value / totalExpense) * 100).toFixed(0) : 0;
-    const color = CHART_COLORS[i % CHART_COLORS.length];
+    const color = d.cor || CHART_COLORS[i % CHART_COLORS.length];
     return `<span class="legend-item">
       <span class="legend-dot" style="background:${color}"></span>
       ${esc(d.name)} <b>${pct}%</b>
@@ -123,7 +164,7 @@ function renderTopList(containerId, data, totalExpense) {
 
   container.innerHTML = data.slice(0, 9).map((c, i) => {
     const pct = totalExpense ? ((c.value / totalExpense) * 100).toFixed(0) : 0;
-    const color = CHART_COLORS[i % CHART_COLORS.length];
+    const color = c.cor || CHART_COLORS[i % CHART_COLORS.length];
     return `<div class="top-row">
       <span class="legend-dot" style="background:${color}"></span>
       <span class="name">${esc(c.name)}</span>
