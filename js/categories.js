@@ -86,6 +86,25 @@ export function isIncome(id) {
   return categoryById(id)?.kind === "income";
 }
 
+export function isSaving(id) {
+  return categoryById(id)?.kind === "saving";
+}
+
+/** Os três tipos, num só sítio: rótulo e classe CSS de cada um. */
+export const TIPOS = {
+  expense: { rotulo: "Despesa", classe: "despesa" },
+  income:  { rotulo: "Receita", classe: "receita" },
+  saving:  { rotulo: "Poupança", classe: "poupanca" },
+};
+
+export function rotuloTipo(kind) {
+  return TIPOS[kind]?.rotulo || TIPOS.expense.rotulo;
+}
+
+export function classeTipo(kind) {
+  return TIPOS[kind]?.classe || TIPOS.expense.classe;
+}
+
 /** A categoria de sistema («Outros»): destino por omissão do importador. */
 export function systemCategoryId() {
   return state.categories.find(c => c.is_system)?.id || null;
