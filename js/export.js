@@ -5,7 +5,7 @@
 // por isso as linhas validadas saem mesmo com fundo #6AA84F.
 // ═══════════════════════════════════════════════════════════
 
-import { state, catName } from "./state.js";
+import { state, catName, monthTotals } from "./state.js";
 import { MONTHS_SHORT, monthOf, yearOf } from "./utils.js";
 import { toast } from "./ui.js";
 
@@ -25,15 +25,18 @@ export function exportToExcel() {
       .sort((a, b) => a.value_date.localeCompare(b.value_date));
     if (!rows.length) return;
 
-    const income = rows.filter(t => t.amount > 0).reduce((s, t) => s + Number(t.amount), 0);
-    const expense = rows.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+    // Reutiliza a definição de state.js: sem isto haveria duas
+    // regras sobre o que conta como despesa, e uma delas ia esquecer
+    // a poupança.
+    const { income, expense, saving } = monthTotals(rows);
 
     const aoa = [
       ["Mês", monthName, state.year],
       [],
       ["Total Receitas", income],
       ["Total Despesas", expense],
-      ["Saldo", income - expense],
+      ["Total Poupança", saving],
+      ["Saldo", income - expense - saving],
       [],
       HEADERS,
       ...rows.map(t => [
@@ -80,13 +83,13 @@ export function exportToExcel() {
   });
 
   // ─── Folha de resumo anual ───
-  const expenseByMonth = MONTHS_SHORT.map((_, i) =>
-    yearTx.filter(t => monthOf(t.value_date) === i && t.amount < 0)
-      .reduce((s, t) => s + Math.abs(Number(t.amount)), 0));
-  const incomeByMonth = MONTHS_SHORT.map((_, i) =>
-    yearTx.filter(t => monthOf(t.value_date) === i && t.amount > 0)
-      .reduce((s, t) => s + Number(t.amount), 0));
-  const balanceByMonth = incomeByMonth.map((v, i) => v - expenseByMonth[i]);
+  const totaisPorMes = MONTHS_SHORT.map((_, i) =>
+    monthTotals(yearTx.filter(t => monthOf(t.value_date) === i)));
+
+  const incomeByMonth = totaisPorMes.map(t => t.income);
+  const expenseByMonth = totaisPorMes.map(t => t.expense);
+  const savingByMonth = totaisPorMes.map(t => t.saving);
+  const balanceByMonth = totaisPorMes.map(t => t.balance);
 
   const sum = arr => arr.reduce((a, b) => a + b, 0);
 
@@ -94,6 +97,7 @@ export function exportToExcel() {
     ["", ...MONTHS_SHORT, "Total"],
     ["Total Receita", ...incomeByMonth, sum(incomeByMonth)],
     ["Total Despesa", ...expenseByMonth, sum(expenseByMonth)],
+    ["Total Poupança", ...savingByMonth, sum(savingByMonth)],
     ["Saldo", ...balanceByMonth, sum(balanceByMonth)],
   ];
 
