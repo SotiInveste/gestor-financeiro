@@ -274,9 +274,16 @@ body {
   border-bottom: 2px solid var(--border); white-space: nowrap;
 }
 .table td { padding: 9px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
-.table tbody tr.validated { background: var(--tint-green-bg); }
 .table tbody tr:hover td { background: var(--hover); }
-.table tbody tr.validated:hover td { background: var(--tint-green-strong); }
+
+/* Movimento tratado: fundo neutro em vez de verde — o verde
+   competia com o das receitas na coluna Valor e confundia. A marca
+   de "tratado" fica na barra à esquerda e no botão do visto. */
+.table tbody tr.validated td { background: var(--surface-soft); }
+.table tbody tr.validated td:first-child {
+  box-shadow: inset 3px 0 0 var(--green);
+}
+.table tbody tr.validated:hover td { background: var(--hover); }
 
 .cell-date { color: var(--text-soft); font-size: 12px; white-space: nowrap; }
 .cell-valuedate { font-size: 12px; white-space: nowrap; }
