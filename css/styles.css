@@ -674,12 +674,24 @@ body {
 .card-wide { grid-column: 1 / -1; }
 
 .destino-wrap { display: flex; gap: 24px; align-items: center; }
-.destino-chart { flex: 0 0 200px; height: 180px; }
+.destino-chart { flex: 0 0 170px; height: 150px; }
 .destino-lado { flex: 1; min-width: 0; }
-.destino-lado .top-list { margin-bottom: 4px; }
+
+/* A legenda comum quebra em linha; aqui há largura de sobra e uma
+   coluna lê-se melhor. */
+.destino-legenda {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.destino-legenda .legend-item { font-size: 13px; }
+
 #destino-base { font-size: 12px; margin: 0; }
 
 @media (max-width: 700px) {
   .destino-wrap { flex-direction: column; align-items: stretch; }
-  .destino-chart { flex: none; width: 100%; height: 200px; }
+  .destino-chart { flex: none; width: 100%; height: 180px; }
 }
