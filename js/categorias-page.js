@@ -19,6 +19,15 @@ let verArquivadas = false;
 let arrastada = null;       // linha de categoria
 let grupoArrastado = null;  // bloco de grupo
 
+// Grupos com a lista à vista. Começa vazio: por omissão está tudo
+// colapsado, para a página caber de uma vez no ecrã.
+//
+// Vive fora do render porque o renderCategoriesPage reconstrói o DOM
+// inteiro — sem isto, editar uma categoria voltava a fechar o cartão.
+// Não é guardado no localStorage de propósito: cada visita começa
+// com a vista geral.
+const expandidos = new Set();
+
 // ═══ Arranque ═══
 
 export function initCategoriesPage() {
@@ -85,14 +94,35 @@ export function renderCategoriesPage() {
     pegaGrupo.onmouseup = () => { bloco.draggable = false; };
     cab.appendChild(pegaGrupo);
 
+    const aberto = expandidos.has(group.id);
+    bloco.classList.toggle("expandido", aberto);
+
+    const alternar = () => {
+      if (expandidos.has(group.id)) expandidos.delete(group.id);
+      else expandidos.add(group.id);
+      renderCategoriesPage();
+    };
+
+    const seta = botaoIcone(
+      "seta",
+      aberto ? "Ocultar categorias" : "Ver categorias",
+      alternar,
+      "cat-seta",
+    );
+    seta.setAttribute("aria-expanded", String(aberto));
+    cab.appendChild(seta);
+
     const titulo = document.createElement("h3");
-    titulo.className = "card-title";
+    titulo.className = "card-title cat-titulo";
     titulo.textContent = (group.emoji + " " + group.name).trim();
+    titulo.title = aberto ? "Ocultar categorias" : "Ver categorias";
+    titulo.onclick = alternar;
     cab.appendChild(titulo);
 
     const cont = document.createElement("span");
     cont.className = "muted";
-    cont.textContent = items.length + " categoria" + (items.length === 1 ? "" : "s");
+    cont.textContent = items.length;
+    cont.title = items.length + " categoria" + (items.length === 1 ? "" : "s");
     cab.appendChild(cont);
 
     cab.appendChild(botaoIcone(
@@ -106,12 +136,15 @@ export function renderCategoriesPage() {
     bloco.appendChild(cab);
     ligarArrastoGrupo(bloco);
 
-    const lista = document.createElement("div");
-    lista.className = "cat-rows";
+    // Só se constrói a lista do grupo aberto: com 15 grupos, criar
+    // todas as linhas para depois as esconder era trabalho a perder.
+    if (aberto) {
+      const lista = document.createElement("div");
+      lista.className = "cat-rows";
+      items.forEach(c => lista.appendChild(linhaCategoria(c, usos.get(c.id) || 0)));
+      bloco.appendChild(lista);
+    }
 
-    items.forEach(c => lista.appendChild(linhaCategoria(c, usos.get(c.id) || 0)));
-
-    bloco.appendChild(lista);
     wrap.appendChild(bloco);
   });
 }
@@ -135,6 +168,7 @@ const ICONES = {
             `<path d="M12 17v-5"/><path d="M9.5 14.5 12 12l2.5 2.5"/>`,
   apagar: `<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>` +
           `<path d="M6 6v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6"/><path d="M10 11v6M14 11v6"/>`,
+  seta: `<path d="m9 6 6 6-6 6"/>`,
 };
 
 /**
