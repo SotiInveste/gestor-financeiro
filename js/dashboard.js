@@ -76,8 +76,9 @@ function renderDestino(totals) {
 
   const total = fatias.reduce((s, f) => s + f.value, 0);
 
-  renderDonut("destino", "chart-destino", null, fatias, total);
-  renderTopList("top-destino", fatias, total);
+  // Só a legenda com percentagens: os valores em euros já estão nos
+  // KPIs logo acima, e repeti-los aqui não acrescentava nada.
+  renderDonut("destino", "chart-destino", "legend-destino", fatias, total);
 
   const base = document.getElementById("destino-base");
   if (base) {
