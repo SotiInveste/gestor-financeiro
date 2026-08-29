@@ -148,7 +148,7 @@ function renderEvolutionChart() {
       datasets: [
         { label: "Receitas", data: series.income, backgroundColor: "#16a34a", borderRadius: 4 },
         { label: "Despesas", data: series.expense, backgroundColor: "#dc2626", borderRadius: 4 },
-        { label: "Poupança", data: series.saving, backgroundColor: "#2563eb", borderRadius: 4 },
+        { label: "Poupança", data: series.saving, backgroundColor: "#c9a227", borderRadius: 4 },
       ],
     },
     options: {
