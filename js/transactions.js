@@ -142,7 +142,7 @@ export function renderTransactions() {
 function rowHTML(t) {
   const pending = t.is_confirmed ? "" : " pending";
   const validated = t.is_validated ? " class=\"validated\"" : "";
-  const amountColor = t.amount >= 0 ? "green" : "";
+  const amountColor = t.amount >= 0 ? "green" : "red";
 
   return `
   <tr data-id="${t.id}"${validated}>
