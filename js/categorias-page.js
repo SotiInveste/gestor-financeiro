@@ -12,7 +12,7 @@
 import * as db from "./db.js";
 import { state } from "./state.js";
 import { groupedCategories } from "./categories.js";
-import { toast, confirmModal, setLoading } from "./ui.js";
+import { toast, confirmModal } from "./ui.js";
 import { esc } from "./utils.js";
 
 let verArquivadas = false;
@@ -95,19 +95,13 @@ export function renderCategoriesPage() {
     cont.textContent = items.length + " categoria" + (items.length === 1 ? "" : "s");
     cab.appendChild(cont);
 
-    const btnEditarGrupo = document.createElement("button");
-    btnEditarGrupo.className = "btn btn-ghost btn-sm";
-    btnEditarGrupo.textContent = "Editar";
-    btnEditarGrupo.onclick = () => editarGrupo(group, btnEditarGrupo);
-    cab.appendChild(btnEditarGrupo);
+    cab.appendChild(botaoIcone(
+      "editar", "Editar grupo", b => editarGrupo(group, b)));
 
     // Apagar grupo só faz sentido com o grupo vazio. A verificação
     // real é feita no servidor antes de tentar.
-    const btnApagarGrupo = document.createElement("button");
-    btnApagarGrupo.className = "btn btn-ghost btn-sm perigo";
-    btnApagarGrupo.textContent = "Apagar";
-    btnApagarGrupo.onclick = () => apagarGrupo(group, btnApagarGrupo);
-    cab.appendChild(btnApagarGrupo);
+    cab.appendChild(botaoIcone(
+      "apagar", "Apagar grupo", b => apagarGrupo(group, b), "perigo"));
 
     bloco.appendChild(cab);
     ligarArrastoGrupo(bloco);
@@ -480,7 +474,7 @@ async function editarGrupo(g, btn) {
   if ((res.emoji || "") !== (g.emoji || "")) patch.emoji = res.emoji || "";
   if (!Object.keys(patch).length) return;
 
-  setLoading(btn, true, "A gravar\u2026");
+  ocupado(btn, true);
   try {
     await db.updateGroup(g.id, patch);
     await recarregar();
@@ -489,12 +483,12 @@ async function editarGrupo(g, btn) {
     console.error("Erro ao atualizar grupo:", err);
     toast(mensagemErroGrupo(err, res.nome.trim()), "err");
   } finally {
-    setLoading(btn, false);
+    ocupado(btn, false);
   }
 }
 
 async function apagarGrupo(g, btn) {
-  setLoading(btn, true, "…");
+  ocupado(btn, true);
   try {
     const n = await db.groupUsage(g.id);
     if (n > 0) {
@@ -520,7 +514,7 @@ async function apagarGrupo(g, btn) {
     console.error("Erro ao apagar grupo:", err);
     toast("Não foi possível apagar o grupo.", "err");
   } finally {
-    setLoading(btn, false);
+    ocupado(btn, false);
   }
 }
 
@@ -582,11 +576,16 @@ function ligarArrastoGrupo(bloco) {
   bloco.ondragover = e => {
     if (!grupoArrastado || grupoArrastado === bloco) return;
     e.preventDefault();
-    const meio = bloco.getBoundingClientRect().top + bloco.offsetHeight / 2;
-    bloco.parentNode.insertBefore(
-      grupoArrastado,
-      e.clientY < meio ? bloco : bloco.nextSibling,
-    );
+
+    // Mesmo critério das categorias: em grelha os vizinhos estão ao
+    // lado, em coluna única estão por cima.
+    const r = bloco.getBoundingClientRect();
+    const emColunas = r.width < bloco.parentNode.clientWidth - 20;
+    const antes = emColunas
+      ? e.clientX < r.left + r.width / 2
+      : e.clientY < r.top + r.height / 2;
+
+    bloco.parentNode.insertBefore(grupoArrastado, antes ? bloco : bloco.nextSibling);
   };
 
   bloco.ondrop = async e => {
