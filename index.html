@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=28">
+  <link rel="stylesheet" href="css/styles.css?v=29">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -92,29 +92,13 @@
       <!-- ═══ DASHBOARD ═══ -->
       <section id="page-dashboard" class="page">
         <div class="kpi-grid">
+          <div class="card kpi"><div class="kpi-label">Receitas</div><div id="kpi-income" class="kpi-value green">—</div></div>
+          <div class="card kpi"><div class="kpi-label">Despesas</div><div id="kpi-expense" class="kpi-value red">—</div></div>
+          <div class="card kpi"><div class="kpi-label">Poupança</div><div id="kpi-saving" class="kpi-value gold">—</div></div>
+          <div class="card kpi kpi-saldo"><div class="kpi-label">Saldo</div><div id="kpi-balance" class="kpi-value">—</div></div>
           <div class="card kpi-chart">
             <div class="chart-wrap kpi-donut"><canvas id="chart-destino"></canvas></div>
             <p id="destino-base" class="muted"></p>
-          </div>
-          <div class="card kpi">
-            <div class="kpi-label">Receitas</div>
-            <div id="kpi-income" class="kpi-value green">—</div>
-            <div id="pct-income" class="kpi-pct"></div>
-          </div>
-          <div class="card kpi">
-            <div class="kpi-label">Despesas</div>
-            <div id="kpi-expense" class="kpi-value red">—</div>
-            <div id="pct-expense" class="kpi-pct"></div>
-          </div>
-          <div class="card kpi">
-            <div class="kpi-label">Poupança</div>
-            <div id="kpi-saving" class="kpi-value gold">—</div>
-            <div id="pct-saving" class="kpi-pct"></div>
-          </div>
-          <div class="card kpi">
-            <div class="kpi-label">Saldo</div>
-            <div id="kpi-balance" class="kpi-value">—</div>
-            <div id="pct-balance" class="kpi-pct"></div>
           </div>
         </div>
 
