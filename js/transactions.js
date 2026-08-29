@@ -199,7 +199,7 @@ function footHTML(totals) {
   <tr>
     <td colspan="4"></td>
     <td></td>
-    <td class="foot-value blue">${fmt(totals.saving)}<div class="muted">poupança</div></td>
+    <td class="foot-value gold">${fmt(totals.saving)}<div class="muted">poupança</div></td>
     <td></td>
   </tr>
   <tr class="foot-balance">
