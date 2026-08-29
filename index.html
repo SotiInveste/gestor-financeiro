@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=9">
+  <link rel="stylesheet" href="css/styles.css?v=10">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -133,8 +133,7 @@
         <div id="manual-form" class="card manual-form hidden">
           <h3 class="card-title">Novo movimento manual</h3>
           <div class="form-grid">
-            <label>Data Mov.<input type="date" id="m-movement-date" class="select"></label>
-            <label>Data Valor<input type="date" id="m-value-date" class="select"></label>
+            <label>Data<input type="date" id="m-date" class="select"></label>
             <label class="col-2">Descrição<input type="text" id="m-description" class="select" placeholder="Ex: Transferência para PPR"></label>
             <label>Valor (€)<input type="number" id="m-amount" class="select" step="0.01" min="0" placeholder="0.00"></label>
           </div>
