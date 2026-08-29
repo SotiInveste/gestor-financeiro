@@ -667,3 +667,19 @@ body {
 
 .cat-accoes { gap: 2px; }
 .btn-icone.ocupado, .btn-icone:disabled { opacity: .4; cursor: default; }
+
+/* ═══ Destino do dinheiro ═══
+   Ocupa a linha toda: é a vista de resumo, e ao lado do donut sobra
+   largura para a lista com os valores. */
+.card-wide { grid-column: 1 / -1; }
+
+.destino-wrap { display: flex; gap: 24px; align-items: center; }
+.destino-chart { flex: 0 0 200px; height: 180px; }
+.destino-lado { flex: 1; min-width: 0; }
+.destino-lado .top-list { margin-bottom: 4px; }
+#destino-base { font-size: 12px; margin: 0; }
+
+@media (max-width: 700px) {
+  .destino-wrap { flex-direction: column; align-items: stretch; }
+  .destino-chart { flex: none; width: 100%; height: 200px; }
+}
