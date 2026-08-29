@@ -81,27 +81,33 @@ function refreshManualCategorySelect() {
 }
 
 /**
- * Repõe as opções do seletor de conta do formulário manual.
- * Mesma razão do seletor de categorias: as contas podem ser criadas
- * durante a sessão.
+ * Mostra no título do formulário em que conta o movimento vai entrar.
+ *
+ * Não há seletor de conta: o filtro do topo tem sempre exatamente uma
+ * conta escolhida, e é essa. Um seletor que só podia repetir essa
+ * escolha era um campo a mais e uma hipótese de divergência.
  */
-function refreshManualAccountSelect() {
-  const sel = document.getElementById("m-account");
-  if (!sel) return;
+function refreshManualAccountLabel() {
+  const el = document.getElementById("m-conta-label");
+  if (!el) return;
+  el.textContent = state.accountFilter
+    ? ` · ${accountName(state.accountFilter)}`
+    : "";
+}
 
-  const atual = sel.value;
-  const contas = state.accounts;
-
-  sel.innerHTML = contas.map(a =>
-    `<option value="${a.id}">${esc(accountName(a.id))}</option>`
-  ).join("");
-
-  // Preferência: a escolha em curso, senão a conta filtrada, senão a
-  // primeira. Assim, a filtrar por uma conta, o movimento novo entra
-  // nessa conta sem ser preciso mexer no seletor.
-  const preferida = contas.some(a => a.id === atual) ? atual
-    : (state.accountFilter || contas[0]?.id || "");
-  if (preferida) sel.value = preferida;
+/**
+ * Data com que o formulário abre.
+ *
+ * No mês corrente é hoje. Noutro mês é o dia 1, para o calendário
+ * abrir logo no mês que está selecionado no topo em vez de saltar
+ * para o mês atual.
+ */
+function dataPredefinida() {
+  const hoje = new Date();
+  if (state.month === hoje.getMonth() && state.year === hoje.getFullYear()) {
+    return today();
+  }
+  return `${state.year}-${String(state.month + 1).padStart(2, "0")}-01`;
 }
 
 export function renderTransactions() {
@@ -114,7 +120,7 @@ export function renderTransactions() {
 
   // O estado das categorias e contas pode ter mudado noutra página.
   refreshManualCategorySelect();
-  refreshManualAccountSelect();
+  refreshManualAccountLabel();
 
   const isEmpty = list.length === 0;
   wrap.classList.toggle("hidden", isEmpty);
@@ -432,7 +438,13 @@ export function initManualForm() {
   toggleBtn.onclick = () => {
     const isHidden = form.classList.toggle("hidden");
     toggleBtn.textContent = isHidden ? "+ Movimento manual" : "✕ Fechar";
-    if (!isHidden) document.getElementById("m-description").focus();
+    if (!isHidden) {
+      // A data acompanha o período escolhido no topo, que pode ter
+      // mudado desde a última vez que o formulário esteve aberto.
+      document.getElementById("m-date").value = dataPredefinida();
+      refreshManualAccountLabel();
+      document.getElementById("m-description").focus();
+    }
   };
 
   document.getElementById("m-cancel").onclick = () => {
@@ -452,7 +464,7 @@ export function initManualForm() {
 }
 
 function resetManualForm() {
-  document.getElementById("m-date").value = today();
+  document.getElementById("m-date").value = dataPredefinida();
   document.getElementById("m-description").value = "";
   document.getElementById("m-amount").value = "";
 
@@ -473,12 +485,14 @@ async function saveManual() {
   // valor. Num lançamento manual não há desfasamento entre as duas.
   const data = document.getElementById("m-date").value;
   const categoryId = document.getElementById("m-category").value;
-  const accountId = document.getElementById("m-account").value || null;
+  // A conta é a que está filtrada no topo — não há seletor.
+  const accountId = state.accountFilter;
 
   if (!description || !Number.isFinite(rawAmount) || rawAmount === 0) {
     return toast("Preenche a descrição e um valor válido.", "err");
   }
   if (!data) return toast("Indica a data do movimento.", "err");
+  if (!accountId) return toast("Não há nenhuma conta selecionada.", "err");
 
   const amount = manualType === "expense" ? -Math.abs(rawAmount) : Math.abs(rawAmount);
 
