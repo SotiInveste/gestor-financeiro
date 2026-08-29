@@ -446,16 +446,6 @@ body {
 /* Margem só quando há lista por baixo: um cartão fechado fica compacto. */
 .cat-group.expandido .cat-group-head { margin-bottom: 10px; }
 
-/* Numa grelha, a altura da linha é ditada pelo cartão mais alto dela:
-   expandir um grupo empurrava para baixo tudo o que vinha a seguir.
-   Limitar a altura da lista mantém esse empurrão pequeno e previsível
-   — um grupo grande passa a ter scroll próprio em vez de esticar o
-   cartão sem fim. */
-.cat-group.expandido .cat-rows {
-  max-height: 260px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
 
 .cat-titulo { cursor: pointer; }
 
