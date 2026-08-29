@@ -416,7 +416,10 @@ body {
   .main { padding: 20px 14px 50px; }
   .kpi-grid { grid-template-columns: 1fr; gap: 10px; }
   .kpi-saldo, .kpi-chart { grid-column: 1; grid-row: auto; }
-  .kpi-donut { height: 170px; }
+  /* Empilhado, o cartão deixa de ter de fechar com duas linhas de
+     KPIs: a altura passa a seguir o conteúdo. */
+  .kpi-chart { height: auto; }
+  .kpi-chart .kpi-donut { height: 170px; }
   .kpi-value { font-size: 20px; }
   .chart-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr 1fr; }
