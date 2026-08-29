@@ -209,7 +209,32 @@ body {
 }
 .select::placeholder { color: var(--faint); }
 
-.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+/* Donut + os quatro KPIs na mesma fila: cada fatia corresponde a um
+   cartão, e as cores fazem a ligação sem precisar de legenda. */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 180px repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.kpi-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px;
+}
+.kpi-donut { width: 100%; height: 110px; }
+#destino-base { font-size: 11px; margin: 0; text-align: center; }
+
+.kpi-pct { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+@media (max-width: 1100px) {
+  .kpi-grid { grid-template-columns: 160px repeat(2, 1fr); }
+  .kpi-chart { grid-row: span 2; }
+}
 .kpi { margin-bottom: 0; }
 .kpi-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
 .kpi-value { font-size: 26px; font-weight: 700; letter-spacing: -1px; }
@@ -374,7 +399,9 @@ body {
   .header-balance { display: none; }
   .nav { width: 100%; overflow-x: auto; }
   .main { padding: 20px 14px 50px; }
-  .kpi-grid { grid-template-columns: 1fr; gap: 10px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi-chart { grid-column: span 2; grid-row: auto; }
+  .kpi-donut { height: 140px; }
   .kpi-value { font-size: 22px; }
   .chart-grid { grid-template-columns: 1fr; }
   .form-grid { grid-template-columns: 1fr 1fr; }
@@ -667,31 +694,3 @@ body {
 
 .cat-accoes { gap: 2px; }
 .btn-icone.ocupado, .btn-icone:disabled { opacity: .4; cursor: default; }
-
-/* ═══ Destino do dinheiro ═══
-   Ocupa a linha toda: é a vista de resumo, e ao lado do donut sobra
-   largura para a lista com os valores. */
-.card-wide { grid-column: 1 / -1; }
-
-.destino-wrap { display: flex; gap: 24px; align-items: center; }
-.destino-chart { flex: 0 0 170px; height: 150px; }
-.destino-lado { flex: 1; min-width: 0; }
-
-/* A legenda comum quebra em linha; aqui há largura de sobra e uma
-   coluna lê-se melhor. */
-.destino-legenda {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 13px;
-}
-.destino-legenda .legend-item { font-size: 13px; }
-
-#destino-base { font-size: 12px; margin: 0; }
-
-@media (max-width: 700px) {
-  .destino-wrap { flex-direction: column; align-items: stretch; }
-  .destino-chart { flex: none; width: 100%; height: 180px; }
-}
