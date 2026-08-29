@@ -248,11 +248,20 @@ body {
 .type-toggle { display: flex; gap: 8px; }
 .type-btn {
   flex: 1; padding: 8px; border-radius: 8px; border: 1px solid var(--border-input);
-  background: var(--surface); color: var(--muted); font-size: 13px;
+  background: var(--surface); font-size: 13px;
   font-weight: 600; cursor: pointer; font-family: inherit;
 }
-.type-btn.active[data-type="expense"] { border-color: var(--red); background: var(--tint-red-bg); color: var(--red); }
-.type-btn.active[data-type="income"] { border-color: var(--green); background: var(--tint-green-bg); color: var(--green); }
+
+/* Cada botão tem sempre a sua cor, para se reconhecerem de relance.
+   A seleção distingue-se pelo fundo e pela borda, não pela cor do
+   texto — dois cinzentos iguais não diziam qual era qual. */
+.type-btn[data-type="expense"] { color: var(--red); }
+.type-btn[data-type="income"]  { color: var(--green); }
+
+.type-btn:not(.active) { opacity: .6; }
+
+.type-btn.active[data-type="expense"] { border-color: var(--red); background: var(--tint-red-bg); }
+.type-btn.active[data-type="income"] { border-color: var(--green); background: var(--tint-green-bg); }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ═══ Tabela ═══ */
