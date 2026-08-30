@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=33">
+  <link rel="stylesheet" href="css/styles.css?v=34">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -42,7 +42,9 @@
       <h1 class="logo">Gestor<span>Fin</span></h1>
       <p class="login-sub">As tuas despesas mensais, sem folhas de cálculo.</p>
       <input type="email" id="login-email" placeholder="o.teu@email.com" autocomplete="email">
-      <button id="login-btn" class="btn btn-primary btn-block">Entrar com link mágico</button>
+      <input type="password" id="login-password" placeholder="Palavra-passe" autocomplete="current-password">
+      <button id="login-btn" class="btn btn-primary btn-block">Entrar</button>
+      <button id="login-magic" class="btn btn-ghost btn-block login-alt">Enviar link mágico</button>
       <p id="login-msg" class="login-msg"></p>
     </div>
   </div>
@@ -69,6 +71,12 @@
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="4.2"/>
             <path d="M12 2.4v2.1M12 19.5v2.1M4.2 4.2l1.5 1.5M18.3 18.3l1.5 1.5M2.4 12h2.1M19.5 12h2.1M4.2 19.8l1.5-1.5M18.3 5.7l1.5-1.5"/>
+          </svg>
+        </button>
+        <button id="btn-password" class="btn-theme" type="button" title="Definir palavra-passe" aria-label="Definir palavra-passe">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="4" y="10" width="16" height="10" rx="2"/>
+            <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
           </svg>
         </button>
         <button id="btn-logout" class="btn btn-ghost" title="Terminar sessão">Sair</button>
