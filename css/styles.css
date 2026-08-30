@@ -712,3 +712,7 @@ body {
 
 .cat-accoes { gap: 2px; }
 .btn-icone.ocupado, .btn-icone:disabled { opacity: .4; cursor: default; }
+
+/* Link mágico como segunda via, visualmente subordinado à entrada
+   normal por palavra-passe. */
+.login-alt { margin-top: 8px; font-size: 13px; }
