@@ -2,7 +2,10 @@
 // Arranque, autenticação e navegação
 // ═══════════════════════════════════════════════════════════
 
-import { getSession, sendMagicLink, signOut, onAuthChange } from "./auth.js";
+import {
+  getSession, sendMagicLink, signInWithPassword, definirPassword,
+  signOut, onAuthChange,
+} from "./auth.js";
 import * as db from "./db.js";
 import { state, currentMonthTransactions, monthTotals, addLocal, existingHashes } from "./state.js";
 import { renderDashboard } from "./dashboard.js";
@@ -12,7 +15,7 @@ import {
 import { exportToExcel } from "./export.js";
 import { parseStatement, readFile } from "./import.js";
 import { MONTHS, fmt } from "./utils.js";
-import { toast } from "./ui.js";
+import { toast, confirmModal } from "./ui.js";
 import { initTheme } from "./theme.js";
 import { initOpenBanking } from "./openbanking.js";
 import { initContas, renderContas, construirFiltroContas } from "./contas.js";
@@ -108,18 +111,58 @@ async function startApp(session) {
 
 // ═══ Login ═══
 
-document.getElementById("login-btn").onclick = async () => {
-  const input = document.getElementById("login-email");
+function emailDoFormulario() {
   const msg = document.getElementById("login-msg");
-  const email = input.value.trim();
+  const email = document.getElementById("login-email").value.trim();
 
   if (!email || !email.includes("@")) {
     msg.textContent = "Indica um email válido.";
+    msg.className = "login-msg err";
+    return null;
+  }
+  return email;
+}
+
+// ─── Entrada por palavra-passe (caminho normal) ───
+
+document.getElementById("login-btn").onclick = async () => {
+  const msg = document.getElementById("login-msg");
+  const email = emailDoFormulario();
+  if (!email) return;
+
+  const password = document.getElementById("login-password").value;
+  if (!password) {
+    msg.textContent = "Indica a palavra-passe, ou usa o link mágico.";
     msg.className = "login-msg err";
     return;
   }
 
   const btn = document.getElementById("login-btn");
+  btn.disabled = true;
+  btn.textContent = "A entrar…";
+
+  try {
+    await signInWithPassword(email, password);
+    window.location.reload();
+  } catch (err) {
+    console.error("Erro ao entrar:", err);
+    msg.textContent = /invalid/i.test(err?.message || "")
+      ? "Email ou palavra-passe errados."
+      : err?.message || "Não foi possível entrar.";
+    msg.className = "login-msg err";
+    btn.disabled = false;
+    btn.textContent = "Entrar";
+  }
+};
+
+// ─── Link mágico (recurso) ───
+
+document.getElementById("login-magic").onclick = async () => {
+  const msg = document.getElementById("login-msg");
+  const email = emailDoFormulario();
+  if (!email) return;
+
+  const btn = document.getElementById("login-magic");
   btn.disabled = true;
   btn.textContent = "A enviar…";
 
@@ -147,13 +190,16 @@ document.getElementById("login-btn").onclick = async () => {
     msg.className = "login-msg err";
   } finally {
     btn.disabled = false;
-    btn.textContent = "Entrar com link mágico";
+    btn.textContent = "Enviar link mágico";
   }
 };
 
-document.getElementById("login-email").onkeydown = e => {
-  if (e.key === "Enter") document.getElementById("login-btn").click();
-};
+["login-email", "login-password"].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.onkeydown = e => {
+    if (e.key === "Enter") document.getElementById("login-btn").click();
+  };
+});
 
 // ═══ Período ═══
 
@@ -275,6 +321,39 @@ async function handleFile(e) {
   }
 }
 
+/**
+ * Define ou muda a palavra-passe da conta.
+ *
+ * Só está disponível com sessão iniciada — é o próprio Supabase a
+ * garantir isso. Depois de definida, deixa de ser preciso o link
+ * mágico, e com ele o limite de envios de email.
+ */
+async function pedirPassword() {
+  const res = await confirmModal({
+    title: "Definir palavra-passe",
+    text: "Com uma palavra-passe definida, entras sem depender do email. " +
+          "Mínimo de 6 caracteres.",
+    okLabel: "Guardar",
+    extraHTML:
+      `<label>Nova palavra-passe</label>
+       <input type="password" data-field="pw" autocomplete="new-password">`,
+  });
+  if (!res || !res.pw) return;
+
+  if (res.pw.length < 6) {
+    toast("A palavra-passe tem de ter pelo menos 6 caracteres.", "err");
+    return;
+  }
+
+  try {
+    await definirPassword(res.pw);
+    toast("Palavra-passe definida. Já podes entrar sem o link mágico.", "ok");
+  } catch (err) {
+    console.error("Erro ao definir a palavra-passe:", err);
+    toast(err?.message || "Não foi possível definir a palavra-passe.", "err");
+  }
+}
+
 // ═══ Ligações de eventos ═══
 
 function bindEvents() {
@@ -297,6 +376,9 @@ function bindEvents() {
   document.getElementById("btn-export").onclick = exportToExcel;
   document.getElementById("btn-validate-all").onclick = validateAll;
   document.getElementById("btn-logout").onclick = signOut;
+
+  const btnPassword = document.getElementById("btn-password");
+  if (btnPassword) btnPassword.onclick = pedirPassword;
 
   // Eventos internos disparados pelos módulos
   document.addEventListener("data-changed", renderAll);
