@@ -128,8 +128,22 @@ document.getElementById("login-btn").onclick = async () => {
     msg.textContent = "✅ Link enviado. Verifica o teu email.";
     msg.className = "login-msg ok";
   } catch (err) {
-    console.error(err);
-    msg.textContent = "Erro ao enviar o link. Tenta novamente.";
+    console.error("Erro ao enviar o magic link:", err);
+
+    // A mensagem genérica escondia a causa. As mais comuns têm
+    // resposta própria; o resto mostra o que o servidor disse.
+    let texto;
+    if (err?.status === 429) {
+      texto = "Demasiados pedidos seguidos. O Supabase limita os envios de " +
+              "email por hora — espera uns minutos e tenta outra vez.";
+    } else if (/redirect/i.test(err?.message || "")) {
+      texto = "Endereço de regresso não autorizado. Verifica a lista de " +
+              "Redirect URLs em Authentication → URL Configuration.";
+    } else {
+      texto = err?.message || "Erro ao enviar o link. Tenta novamente.";
+    }
+
+    msg.textContent = texto;
     msg.className = "login-msg err";
   } finally {
     btn.disabled = false;
