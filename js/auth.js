@@ -24,11 +24,21 @@ export async function getSession() {
   return data.session;
 }
 
-/** Envia o magic link para o email indicado. */
+/**
+ * Envia o magic link para o email indicado.
+ *
+ * O endereço de regresso é só origem + caminho: a query string tinha
+ * de ficar de fora. O Supabase valida o emailRedirectTo contra a lista
+ * de endereços autorizados, e um ?code=… vindo do regresso do banco
+ * fazia o endereço deixar de corresponder — o email nem chegava a ser
+ * enviado.
+ */
 export async function sendMagicLink(email) {
+  const destino = window.location.origin + window.location.pathname;
+
   const { error } = await sb.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: window.location.href.split("#")[0] },
+    options: { emailRedirectTo: destino },
   });
   if (error) throw error;
 }
