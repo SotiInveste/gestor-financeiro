@@ -25,6 +25,23 @@ export async function getSession() {
 }
 
 /**
+ * Entrada por palavra-passe.
+ *
+ * É o caminho normal: não envia emails, por isso não esbarra no
+ * limite de envios do Supabase. O link mágico fica como recurso.
+ */
+export async function signInWithPassword(email, password) {
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+/** Define ou muda a palavra-passe da conta com sessão iniciada. */
+export async function definirPassword(password) {
+  const { error } = await sb.auth.updateUser({ password });
+  if (error) throw error;
+}
+
+/**
  * Envia o magic link para o email indicado.
  *
  * O endereço de regresso é só origem + caminho: a query string tinha
