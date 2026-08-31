@@ -195,10 +195,14 @@ Deno.serve(async (req: Request) => {
         .filter(Boolean).join(" "),
       consent_expires_at: validUntil,
       // Uma autorização nova abre uma janela nova de histórico completo
-      // (cerca de 1 hora). Repor a data obriga a sincronização seguinte
-      // a usar outra vez a estratégia mais longa disponível.
+      // (cerca de 1 hora). Repor a data faz o handleRedirect propor a
+      // importação — mas já não decide a estratégia, que é escolhida
+      // explicitamente (ver openbanking.js).
       last_synced_at: null,
-      deleted_at: null,
+      // O deleted_at fica de fora de propósito: uma conta arquivada
+      // pelo utilizador tem de continuar arquivada depois de
+      // reautorizar. A autorização devolve as quatro contas do banco,
+      // e repor o campo ressuscitava as que ele tinha posto de lado.
     }));
 
   if (rows.length === 0) {
