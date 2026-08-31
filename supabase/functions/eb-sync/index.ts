@@ -224,7 +224,7 @@ Deno.serve(async (req: Request) => {
   try {
     const res = await fetch(
       `${supabaseUrl}/rest/v1/fin_bank_accounts?id=eq.${encodeURIComponent(accountId)}` +
-      `&deleted_at=is.null&select=id,account_uid,aspsp_name,consent_expires_at`,
+      `&deleted_at=is.null&select=id,account_uid,session_id,aspsp_name,consent_expires_at`,
       { headers: { apikey: anonKey, Authorization: `Bearer ${user.token}` } },
     );
     const rows = await res.json().catch(() => null);
@@ -289,6 +289,44 @@ Deno.serve(async (req: Request) => {
   };
   if (psuIp) ebHeaders["PSU-IP-Address"] = psuIp;
   if (psuAgent) ebHeaders["PSU-User-Agent"] = psuAgent;
+
+  // ─── Modo de diagnóstico ───
+  //
+  // Um ASPSP_ERROR diz apenas "o banco recusou". Para saber o quê, é
+  // preciso bater à porta por caminhos diferentes: o estado da sessão
+  // (que não chega a tocar no banco), os saldos (que tocam, mas por
+  // outro endpoint) e os movimentos com um intervalo explícito.
+  // O que responder e o que falhar delimita a causa.
+  if (body?.diagnostico === true) {
+    const resultado: Record<string, unknown> = {
+      account_uid: account.account_uid,
+      tem_session_id: Boolean(account.session_id),
+      consent_expires_at: account.consent_expires_at,
+      psu_headers: Boolean(psuIp),
+    };
+
+    const sondar = async (nome: string, url: string) => {
+      try {
+        const r = await fetch(url, { headers: ebHeaders });
+        resultado[nome] = { status: r.status, corpo: await r.json().catch(() => null) };
+      } catch (err) {
+        resultado[nome] = { erro: String((err as Error)?.message ?? err) };
+      }
+    };
+
+    if (account.session_id) {
+      await sondar("sessao", `${EB_BASE}/sessions/${encodeURIComponent(account.session_id)}`);
+    }
+
+    const uid = encodeURIComponent(account.account_uid);
+    await sondar("saldos", `${EB_BASE}/accounts/${uid}/balances`);
+
+    const desde = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+    await sondar("movimentos_com_data", `${EB_BASE}/accounts/${uid}/transactions?date_from=${desde}`);
+    await sondar("movimentos_sem_data", `${EB_BASE}/accounts/${uid}/transactions`);
+
+    return json({ ok: true, diagnostico: resultado });
+  }
 
   const collected: Record<string, any>[] = [];
   let continuationKey: string | null = null;
