@@ -43,7 +43,7 @@ export async function connectBank() {
     const { data, error } = await sb.functions.invoke("eb-auth-start", {
       body: { action: "list", country: "PT" },
     });
-    if (error || !data?.ok) throw new Error(describeError(error, data));
+    if (error || !data?.ok) throw new Error(await describeError(error, data));
 
     const options = (data.aspsps || [])
       .map(a => a.name)
@@ -69,7 +69,7 @@ export async function connectBank() {
       body: { action: "start", aspsp_name: choice.bank, aspsp_country: "PT" },
     });
     if (started.error || !started.data?.ok) {
-      throw new Error(describeError(started.error, started.data));
+      throw new Error(await describeError(started.error, started.data));
     }
     if (!started.data.url) throw new Error("O banco não devolveu um endereço de autorização.");
 
@@ -115,7 +115,7 @@ async function handleRedirect() {
     const { data, error } = await sb.functions.invoke("eb-auth-callback", {
       body: { code },
     });
-    if (error || !data?.ok) throw new Error(describeError(error, data));
+    if (error || !data?.ok) throw new Error(await describeError(error, data));
 
     state.accounts = await db.fetchBankAccounts();
     avisarContas();
@@ -165,7 +165,7 @@ export async function syncAccount(account, btn = null) {
         strategy: first ? "longest" : null,
       },
     });
-    if (error || !data?.ok) throw new Error(describeError(error, data));
+    if (error || !data?.ok) throw new Error(await describeError(error, data));
 
     const result = await importTransactions(account, data.transactions || []);
 
@@ -281,11 +281,35 @@ async function importTransactions(account, incoming) {
 
 // ═══ Auxiliares ═══
 
-/** Constrói uma mensagem legível a partir da resposta da Edge Function. */
-function describeError(error, data) {
+/**
+ * Constrói uma mensagem legível a partir da resposta da Edge Function.
+ *
+ * Numa resposta não-2xx o supabase-js devolve `data` a null e guarda a
+ * resposta em `error.context`. Sem a ler, a mensagem seria sempre a
+ * genérica "Edge Function returned a non-2xx status code" — e a
+ * explicação que a função enviou ficava por ler.
+ */
+async function describeError(error, data) {
   if (data?.error) return data.error;
   if (data?.detail?.message) return data.detail.message;
   if (data?.step) return `Falha no passo "${data.step}".`;
+
+  if (error?.context && typeof error.context.json === "function") {
+    try {
+      const corpo = await error.context.json();
+      console.error("Resposta da Edge Function:", corpo);
+
+      if (corpo?.error) {
+        return corpo.step ? `${corpo.error} (passo: ${corpo.step})` : corpo.error;
+      }
+      if (corpo?.detail?.message) return corpo.detail.message;
+      if (corpo?.detail?.error) return String(corpo.detail.error);
+      if (corpo?.step) return `Falha no passo "${corpo.step}".`;
+    } catch (err) {
+      console.error("Corpo da resposta ilegível:", err);
+    }
+  }
+
   if (error?.message) return error.message;
   return "Erro desconhecido na ligação ao banco.";
 }
