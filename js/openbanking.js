@@ -151,6 +151,31 @@ function cleanUrl() {
 
 // ═══ Sincronização ═══
 
+/**
+ * Data de início das sincronizações seguintes à primeira.
+ *
+ * O ActivoBank recusa consultas de movimentos sem intervalo definido
+ * — devolve ASPSP_ERROR. A primeira recolha escapa porque o
+ * strategy=longest define a janela do lado do servidor; as
+ * incrementais não enviavam nada e falhavam.
+ *
+ * Conta-se desde a última sincronização, com uma semana de margem:
+ * movimentos de fim de semana só são lançados no dia útil seguinte, e
+ * sem margem passariam ao lado. Os repetidos não fazem mal — o upsert
+ * por entry_reference descarta-os.
+ *
+ * O limite de 89 dias evita pedir mais fundo do que o banco permite.
+ */
+function intervaloIncremental(account) {
+  const desde = new Date(account.last_synced_at);
+  desde.setDate(desde.getDate() - 7);
+
+  const maisAntigo = new Date(Date.now() - 89 * 86_400_000);
+  const escolhida = desde < maisAntigo ? maisAntigo : desde;
+
+  return escolhida.toISOString().slice(0, 10);
+}
+
 export async function syncAccount(account, btn = null) {
   if (!account) return;
 
@@ -163,6 +188,7 @@ export async function syncAccount(account, btn = null) {
         account_id: account.id,
         // A primeira recolha usa a estratégia mais longa disponível.
         strategy: first ? "longest" : null,
+        date_from: first ? null : intervaloIncremental(account),
       },
     });
     if (error || !data?.ok) throw new Error(await describeError(error, data));
