@@ -134,7 +134,7 @@ async function handleRedirect() {
               "após a autorização. Depois disso o banco limita a 90 dias.",
         okLabel: "Importar agora",
       });
-      if (go) await syncAccount(first);
+      if (go) await syncAccount(first, null, { historicoCompleto: true });
     }
   } catch (err) {
     console.error("Erro ao concluir a autorização:", err);
@@ -167,28 +167,30 @@ function cleanUrl() {
  * O limite de 89 dias evita pedir mais fundo do que o banco permite.
  */
 function intervaloIncremental(account) {
+  const maisAntigo = new Date(Date.now() - 89 * 86_400_000);
+  if (!account.last_synced_at) return maisAntigo.toISOString().slice(0, 10);
+
   const desde = new Date(account.last_synced_at);
   desde.setDate(desde.getDate() - 7);
 
-  const maisAntigo = new Date(Date.now() - 89 * 86_400_000);
-  const escolhida = desde < maisAntigo ? maisAntigo : desde;
-
-  return escolhida.toISOString().slice(0, 10);
+  return (desde < maisAntigo ? maisAntigo : desde).toISOString().slice(0, 10);
 }
 
-export async function syncAccount(account, btn = null) {
+export async function syncAccount(account, btn = null, { historicoCompleto = false } = {}) {
   if (!account) return;
-
-  const first = !account.last_synced_at;
   setLoading(btn, true, "A sincronizar…");
 
   try {
     const { data, error } = await sb.functions.invoke("eb-sync", {
       body: {
         account_id: account.id,
-        // A primeira recolha usa a estratégia mais longa disponível.
-        strategy: first ? "longest" : null,
-        date_from: first ? null : intervaloIncremental(account),
+        // O strategy=longest só é aceite dentro da janela de cerca de
+        // uma hora a seguir a autorizar; fora dela o banco recusa com
+        // ASPSP_ERROR. Por isso não basta "nunca sincronizada" — quem
+        // sabe que estamos na janela é o handleRedirect, e é ele que
+        // pede o histórico completo.
+        strategy: historicoCompleto ? "longest" : null,
+        date_from: historicoCompleto ? null : intervaloIncremental(account),
       },
     });
     if (error || !data?.ok) throw new Error(await describeError(error, data));
