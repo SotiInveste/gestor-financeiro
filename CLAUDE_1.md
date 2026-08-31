@@ -273,6 +273,46 @@ lá, não nas funções, para as regras não existirem em dois sítios.
 - Edge Functions fazem deploy pelo Dashboard do Supabase (o utilizador não usa CLI).
   O Dashboard não tem versionamento — manter sempre a cópia em `supabase/functions/`.
 
+### Consultar movimentos: o intervalo é obrigatório
+
+Aprendido em 31/08/2026, ao fim de uma caça longa a um `ASPSP_ERROR`.
+
+**O ActivoBank recusa consultas de movimentos sem intervalo definido.**
+`GET /accounts/{uid}/transactions` sem `date_from` nem `strategy` devolve
+`400 ASPSP_ERROR / "Error interacting with ASPSP"`, com `detail: null`.
+A mesma conta, com `date_from`, responde `200` normalmente.
+
+**O `strategy=longest` só é aceite dentro da janela de cerca de uma hora
+a seguir a autorizar.** Fora dela o banco recusa da mesma maneira. Por
+isso a decisão de o usar **não pode depender do `last_synced_at`**: o
+`eb-auth-callback` repõe esse campo a nulo ao reautorizar, e a partir daí
+todas as sincronizações se apresentariam como primeira. Quem sabe que
+estamos na janela é o `handleRedirect`, e é ele que pede o histórico
+completo, passando `historicoCompleto: true`.
+
+As sincronizações normais enviam sempre `date_from`, contado desde a
+última sincronização com uma semana de margem — movimentos de fim de
+semana só são lançados no dia útil seguinte. Os repetidos são
+descartados pelo upsert.
+
+**Ao depurar um `ASPSP_ERROR`:** significa só "o banco recusou". Antes de
+suspeitar da autorização, verificar a **forma do pedido**. A sessão pode
+estar `AUTHORIZED` e válida por meses e o erro ser um parâmetro em falta.
+O `eb-sync` tem um modo de diagnóstico (`diagnostico: true` no corpo) que
+sonda o estado da sessão, os saldos e os movimentos de todas as contas —
+foi o que resolveu este caso, depois de três hipóteses erradas seguidas.
+
+### A sessão tem várias contas
+
+A autorização do ActivoBank devolve **quatro** contas. Só a `••••2894` é
+a conta à ordem com os movimentos. Uma delas é uma linha de crédito
+(saldo contabilístico 0, 5000 autorizados) que **não tem extrato** — pedir
+movimentos aí devolve vazio ou erro.
+
+O `fin_bank_accounts` tem uma linha por cada, todas com o `account_uid`
+correto. Sincronizar a errada era fácil: a lista mostra um botão por
+conta e a linha de crédito aparece em primeiro.
+
 ### Limitações a respeitar no desenho
 
 - Histórico completo só está disponível cerca de 1 hora após a autorização;
