@@ -164,6 +164,37 @@ function normalizeTransaction(tx: Record<string, any>) {
 
 // ─── Handler ───
 
+/**
+ * Traduz os erros da Enable Banking em algo accionável.
+ *
+ * O mais frequente é o ASPSP_ERROR: a Enable Banking chegou ao banco
+ * mas o banco recusou, e quase nunca diz porquê (detail vem a null).
+ * Costuma ser transitório — manutenção nocturna, processamento de
+ * fecho do dia, ou limitação temporária do lado do banco. Distinguir
+ * isto de um problema de autorização evita reautorizações inúteis.
+ */
+function explicarErro(status: number, payload: Record<string, any> | null): string {
+  const codigo = payload?.error ?? "";
+
+  if (codigo === "ASPSP_ERROR") {
+    return "O banco recusou o pedido e não explicou porquê. Costuma ser " +
+           "temporário — tenta daqui a algumas horas, de preferência em " +
+           "horário útil. Não é preciso voltar a ligar o banco.";
+  }
+
+  if (status === 401 || status === 403) {
+    return "A autorização de acesso ao banco caducou. É preciso voltar a " +
+           "ligar o banco.";
+  }
+
+  if (status === 429) {
+    return "Demasiadas recolhas seguidas. O limite é de cerca de quatro por " +
+           "dia — espera e tenta outra vez.";
+  }
+
+  return payload?.message || `O banco respondeu com o estado ${status}.`;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -284,6 +315,7 @@ Deno.serve(async (req: Request) => {
           ok: false,
           step: "transacoes",
           status: res.status,
+          error: explicarErro(res.status, payload),
           detail: payload,
           pagina: pages + 1,
           recolhidos: collected.length,
