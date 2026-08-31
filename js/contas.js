@@ -125,22 +125,27 @@ export function renderContas() {
       btnEditar.textContent = "Renomear";
       btnEditar.onclick = () => renomearConta(acc, btnEditar);
       accoes.appendChild(btnEditar);
-
-      // Arquivar só sem movimentos: uma conta arquivada com histórico
-      // deixaria esses movimentos a apontar para algo invisível.
-      if ((usos.get(acc.id) || 0) === 0) {
-        const btnArquivar = document.createElement("button");
-        btnArquivar.className = "btn btn-ghost btn-sm perigo";
-        btnArquivar.textContent = "Arquivar";
-        btnArquivar.onclick = () => arquivarConta(acc, btnArquivar);
-        accoes.appendChild(btnArquivar);
-      }
     } else {
       const btnSync = document.createElement("button");
       btnSync.className = "btn btn-primary";
-      btnSync.textContent = acc.last_synced_at ? "Sincronizar" : "Importar histórico";
+      btnSync.textContent = "Sincronizar";
       btnSync.onclick = () => syncAccount(acc, btnSync);
       accoes.appendChild(btnSync);
+    }
+
+    // Arquivar vale para os dois tipos, e só sem movimentos: uma conta
+    // arquivada com histórico deixaria esses movimentos a apontar para
+    // algo invisível.
+    //
+    // Nas contas de banco isto importa mais do que parece: a
+    // autorização do ActivoBank devolve quatro contas, três delas sem
+    // uso, e ter todas na lista convida a sincronizar a errada.
+    if ((usos.get(acc.id) || 0) === 0) {
+      const btnArquivar = document.createElement("button");
+      btnArquivar.className = "btn btn-ghost btn-sm perigo";
+      btnArquivar.textContent = "Arquivar";
+      btnArquivar.onclick = () => arquivarConta(acc, btnArquivar);
+      accoes.appendChild(btnArquivar);
     }
 
     row.append(info, accoes);
