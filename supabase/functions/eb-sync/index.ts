@@ -314,17 +314,69 @@ Deno.serve(async (req: Request) => {
       }
     };
 
+    // Estado da sessão e, com ele, a lista de contas a que dá acesso.
+    let uids: string[] = [account.account_uid];
+
     if (account.session_id) {
       await sondar("sessao", `${EB_BASE}/sessions/${encodeURIComponent(account.session_id)}`);
+      const sessao = (resultado.sessao as any)?.corpo;
+      if (Array.isArray(sessao?.accounts) && sessao.accounts.length) {
+        uids = sessao.accounts.map(String);
+      }
+      resultado.sessao_status = sessao?.status ?? null;
+      resultado.sessao_valid_until = sessao?.access?.valid_until ?? null;
+      // A listagem completa é enorme e não acrescenta nada aqui.
+      delete resultado.sessao;
     }
 
-    const uid = encodeURIComponent(account.account_uid);
-    await sondar("saldos", `${EB_BASE}/accounts/${uid}/balances`);
+    // Varrer TODAS as contas da sessão: a que está gravada pode não ser
+    // a que tem os movimentos. Para cada uma, saldo e contagem.
+    const contas: Record<string, unknown>[] = [];
 
-    const desde = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-    await sondar("movimentos_com_data", `${EB_BASE}/accounts/${uid}/transactions?date_from=${desde}`);
-    await sondar("movimentos_sem_data", `${EB_BASE}/accounts/${uid}/transactions`);
+    for (const uid of uids) {
+      const linha: Record<string, unknown> = {
+        uid,
+        em_uso: uid === account.account_uid,
+      };
 
+      try {
+        const rb = await fetch(`${EB_BASE}/accounts/${encodeURIComponent(uid)}/balances`,
+          { headers: ebHeaders });
+        const b = await rb.json().catch(() => null);
+        linha.saldos = rb.ok
+          ? (b?.balances ?? []).map((x: any) =>
+              `${x.balance_type}: ${x.balance_amount?.amount} ${x.balance_amount?.currency}`)
+          : `erro ${rb.status}`;
+      } catch (err) {
+        linha.saldos = String((err as Error)?.message ?? err);
+      }
+
+      try {
+        const desde = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10);
+        const rt = await fetch(
+          `${EB_BASE}/accounts/${encodeURIComponent(uid)}/transactions?date_from=${desde}`,
+          { headers: ebHeaders });
+        const t = await rt.json().catch(() => null);
+
+        if (!rt.ok) {
+          linha.movimentos = `erro ${rt.status} ${t?.error ?? ""}`.trim();
+        } else {
+          const lista = t?.transactions ?? [];
+          const datas = lista
+            .map((x: any) => x.value_date ?? x.booking_date)
+            .filter(Boolean).sort();
+          linha.movimentos = lista.length;
+          linha.primeiro = datas[0] ?? null;
+          linha.ultimo = datas[datas.length - 1] ?? null;
+        }
+      } catch (err) {
+        linha.movimentos = String((err as Error)?.message ?? err);
+      }
+
+      contas.push(linha);
+    }
+
+    resultado.contas = contas;
     return json({ ok: true, diagnostico: resultado });
   }
 
