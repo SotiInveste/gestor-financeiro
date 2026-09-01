@@ -7,7 +7,9 @@ import {
   signOut, onAuthChange,
 } from "./auth.js";
 import * as db from "./db.js";
-import { state, currentMonthTransactions, monthTotals, addLocal, existingHashes } from "./state.js";
+import {
+  state, currentMonthTransactions, monthTotals, addLocal, existingHashes, ANUAL,
+} from "./state.js";
 import { renderDashboard } from "./dashboard.js";
 import {
   renderTransactions, initManualForm, validateAll, initTableSorting,
@@ -208,7 +210,8 @@ function buildPeriodSelectors() {
   const yearSel = document.getElementById("select-year");
 
   monthSel.innerHTML = MONTHS.map((m, i) =>
-    `<option value="${i}"${i === state.month ? " selected" : ""}>${m}</option>`).join("");
+    `<option value="${i}"${i === state.month ? " selected" : ""}>${m}</option>`).join("") +
+    `<option value="${ANUAL}"${state.month === ANUAL ? " selected" : ""}>Anual</option>`;
 
   const years = new Set(state.transactions.map(t => Number(t.value_date.slice(0, 4))));
   years.add(new Date().getFullYear());
@@ -220,6 +223,10 @@ function buildPeriodSelectors() {
 }
 
 function shiftMonth(delta) {
+  // As setas percorrem só os meses. A vista anual alcança-se pelo
+  // seletor — entrar nela por engano ao navegar seria confuso.
+  if (state.month === ANUAL) return;
+
   let m = state.month + delta;
   let y = state.year;
   if (m < 0) { m = 11; y -= 1; }
@@ -252,8 +259,17 @@ function renderAll() {
   const list = currentMonthTransactions();
   const totals = monthTotals(list);
 
+  const anual = state.month === ANUAL;
+
   document.getElementById("period-count").textContent =
-    `${list.length} movimento${list.length === 1 ? "" : "s"}`;
+    `${list.length} movimento${list.length === 1 ? "" : "s"}` +
+    (anual ? " no ano" : "");
+
+  // Sem meses para percorrer, as setas não têm função.
+  ["prev-month", "next-month"].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.classList.toggle("hidden", anual);
+  });
 
   const balanceEl = document.getElementById("header-balance");
   balanceEl.textContent = `Saldo: ${fmt(totals.balance)}`;
