@@ -9,6 +9,14 @@ import { monthOf, yearOf, makeHash } from "./utils.js";
 
 // ─── Ordenação da tabela, guardada entre sessões ───
 
+/**
+ * Valor de state.month que representa o ano inteiro.
+ *
+ * Fica a seguir aos doze meses de propósito: o seletor lista 0..11 e
+ * depois este, e a ordem no ecrã é a mesma da do valor.
+ */
+export const ANUAL = 12;
+
 const SORT_KEY = "gestorfin-sort";
 const CONTA_KEY = "gestorfin-conta";
 const SORT_OMISSAO = { col: "value_date", dir: "asc" };
@@ -98,7 +106,11 @@ export function currentMonthTransactions() {
   const sinal = dir === "desc" ? -1 : 1;
 
   return state.transactions
-    .filter(t => monthOf(t.value_date) === state.month && yearOf(t.value_date) === state.year)
+    // No modo anual conta o ano inteiro. Sem isto, a página de
+    // movimentos e o saldo do cabeçalho ficavam vazios ao escolher
+    // "Anual", em vez de mostrarem o ano.
+    .filter(t => yearOf(t.value_date) === state.year &&
+      (state.month === ANUAL || monthOf(t.value_date) === state.month))
     .filter(passaFiltroConta)
     .sort((a, b) => {
       const r = cmp(a, b) * sinal;
