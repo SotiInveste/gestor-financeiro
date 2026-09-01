@@ -4,7 +4,7 @@
 
 import {
   state, currentMonthTransactions, monthTotals,
-  expensesByCategory, expensesByGroup, yearlySeries,
+  expensesByCategory, expensesByGroup, yearlySeries, ANUAL,
 } from "./state.js";
 import { fmt, MONTHS_SHORT, CHART_COLORS, esc } from "./utils.js";
 import { themeColors } from "./theme.js";
@@ -30,15 +30,32 @@ export function renderDashboard() {
   balanceEl.textContent = fmt(totals.balance);
   balanceEl.className = "kpi-value " + (totals.balance >= 0 ? "green" : "red");
 
-  // ─── Estado vazio ───
+  // ─── Vista anual ou mensal ───
+  //
+  // São duas vistas distintas, não uma variação da outra: a anual tem
+  // só a evolução ao longo do ano, e a mensal tudo o resto. O gráfico
+  // de evolução saiu da vista mensal — repetia-se em todos os meses e
+  // não dizia nada sobre o mês escolhido.
+  const anual = state.month === ANUAL;
+
   const empty = document.getElementById("dashboard-empty");
   const charts = document.getElementById("dashboard-charts");
+  const kpis = document.querySelector(".kpi-grid");
+  const evolucao = document.getElementById("card-evolution");
   const isEmpty = list.length === 0;
-  empty.classList.toggle("hidden", !isEmpty);
-  charts.classList.toggle("hidden", isEmpty);
+
+  if (kpis) kpis.classList.toggle("hidden", anual);
+  if (evolucao) evolucao.classList.toggle("hidden", !anual);
+  empty.classList.toggle("hidden", anual || !isEmpty);
+  charts.classList.toggle("hidden", anual || isEmpty);
 
   const yearLabel = document.getElementById("year-label");
   if (yearLabel) yearLabel.textContent = state.year;
+
+  if (anual) {
+    renderEvolutionChart();
+    return;
+  }
 
   renderDestino(totals);
 
@@ -52,7 +69,6 @@ export function renderDashboard() {
     renderDonut("categorias", "chart-categories", "legend-categories", porCategoria, totals.expense);
     renderTopList("top-categories", porCategoria, totals.expense);
   }
-  renderEvolutionChart();
 }
 
 /**
@@ -215,6 +231,8 @@ function renderEvolutionChart() {
           grid: { color: colors.grid },
         },
       },
+      // Clicar numa barra desce ao mês respectivo — é a forma natural
+      // de passar da vista anual para o detalhe.
       onClick: (_evt, elements) => {
         if (!elements.length) return;
         state.month = elements[0].index;
