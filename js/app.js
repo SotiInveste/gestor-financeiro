@@ -307,7 +307,22 @@ async function handleFile(e) {
       return;
     }
 
-    const inserted = await db.insertTransactions(result.rows);
+    // A importação entra na conta que está filtrada, tal como o
+    // movimento manual. Sem isto os movimentos ficavam sem conta —
+    // gravavam-se, mas o filtro de conta, que está sempre activo,
+    // escondia-os. Parecia que a importação não tinha funcionado.
+    if (!state.accountFilter) {
+      msg.textContent = "Não há nenhuma conta selecionada para receber os movimentos.";
+      msg.className = "upload-msg err";
+      return;
+    }
+
+    const comConta = result.rows.map(r => ({
+      ...r,
+      bank_account_id: state.accountFilter,
+    }));
+
+    const inserted = await db.insertTransactions(comConta);
     addLocal(inserted);
     buildPeriodSelectors();
 
