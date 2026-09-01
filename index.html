@@ -25,7 +25,12 @@
        em que o listener de auth nunca resolve.
        ══════════════════════════════════════════════════════════ -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx-js-style.min.js"></script>
+  <!-- O caminho dist/xlsx-js-style.min.js deixou de existir no CDN e passou
+       a devolver 404, o que dava "XLSX is not defined" ao importar. O
+       ficheiro publicado nesta versão é o dist/xlsx.bundle.js, que inclui
+       o cpexcel para as tabelas de códigos — precisas dos acentos do
+       extrato do Activo Bank. -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
