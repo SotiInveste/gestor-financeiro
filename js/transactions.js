@@ -4,7 +4,8 @@
 
 import {
   state, currentMonthTransactions, monthTotals,
-  updateLocal, removeLocal, addLocal, guardarOrdenacao, accountName,
+  updateLocal, addLocal, guardarOrdenacao, accountName,
+  findTransaction, archiveLocal, restoreLocal,
 } from "./state.js";
 import { fmt, shortDate, esc, today } from "./utils.js";
 import {
@@ -15,6 +16,48 @@ import * as db from "./db.js";
 import { toast, confirmModal, setLoading } from "./ui.js";
 
 let manualType = "expense";
+
+// Mostrar ou não os movimentos arquivados. Não é guardado entre
+// sessões, tal como na página de categorias: cada visita começa pela
+// vista normal, e o arquivo é uma consulta pontual.
+let verArquivados = false;
+
+// ═══ Arquivo ═══
+
+/**
+ * Liga o interruptor "Ver arquivados".
+ *
+ * Os arquivados são carregados à primeira vez que são pedidos e
+ * ficam em memória até ao fim da sessão. Se a consulta falhar, o
+ * interruptor volta atrás — mostrar a caixa marcada sem ter dados
+ * daria a entender que não há nada arquivado.
+ */
+export function initArquivadosToggle() {
+  const chk = document.getElementById("chk-ver-arquivados");
+  if (!chk) return;
+
+  chk.checked = verArquivados;
+  chk.onchange = async () => {
+    verArquivados = chk.checked;
+
+    if (verArquivados && !state.archivedLoaded) {
+      chk.disabled = true;
+      try {
+        state.archived = await db.fetchArchivedTransactions();
+        state.archivedLoaded = true;
+      } catch (err) {
+        console.error("Erro ao carregar os movimentos arquivados:", err);
+        toast("Não foi possível carregar os movimentos arquivados.", "err");
+        verArquivados = false;
+        chk.checked = false;
+      } finally {
+        chk.disabled = false;
+      }
+    }
+
+    renderTransactions();
+  };
+}
 
 // ═══ Ordenação da tabela ═══
 
@@ -111,7 +154,14 @@ function dataPredefinida() {
 }
 
 export function renderTransactions() {
-  const list = currentMonthTransactions();
+  // Duas listas: a que se mostra e a que conta. Os totais do rodapé
+  // saem sempre dos activos, para não mudarem consoante o
+  // interruptor esteja ligado ou não.
+  const activos = currentMonthTransactions();
+  const list = verArquivados
+    ? currentMonthTransactions({ incluirArquivados: true })
+    : activos;
+
   const body = document.getElementById("table-body");
   const foot = document.getElementById("table-foot");
   const wrap = document.getElementById("table-wrap");
@@ -121,6 +171,14 @@ export function renderTransactions() {
   // O estado das categorias e contas pode ter mudado noutra página.
   refreshManualCategorySelect();
   refreshManualAccountLabel();
+
+  const nArquivados = list.length - activos.length;
+  const cont = document.getElementById("arquivados-count");
+  if (cont) {
+    cont.textContent = nArquivados
+      ? `(${nArquivados} neste período)`
+      : (verArquivados ? "(nenhum neste período)" : "");
+  }
 
   const isEmpty = list.length === 0;
   wrap.classList.toggle("hidden", isEmpty);
@@ -134,12 +192,14 @@ export function renderTransactions() {
   }
 
   body.innerHTML = list.map(t => rowHTML(t)).join("");
-  foot.innerHTML = footHTML(monthTotals(list));
+  foot.innerHTML = footHTML(monthTotals(activos));
   bindRowEvents();
   atualizarIndicadores();
 }
 
 function rowHTML(t) {
+  if (t.deleted_at) return rowArquivadaHTML(t);
+
   const pending = t.is_confirmed ? "" : " pending";
   const validated = t.is_validated ? " class=\"validated\"" : "";
   const amountColor = t.amount >= 0 ? "green" : "red";
@@ -176,6 +236,40 @@ function rowHTML(t) {
         <button class="btn-check${t.is_validated ? " on" : ""}" data-action="toggle-validated"
           title="${t.is_validated ? "Marcar como não tratado" : "Marcar como tratado"}">✓</button>
         <button class="btn-del" data-action="delete" title="Arquivar movimento">✕</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
+/**
+ * Linha de um movimento arquivado.
+ *
+ * Sem data-action nos campos: um movimento arquivado não se edita.
+ * A única acção é tirá-lo do arquivo — depois disso volta a ser uma
+ * linha normal e edita-se como as outras.
+ */
+function rowArquivadaHTML(t) {
+  const amountColor = t.amount >= 0 ? "green" : "red";
+
+  return `
+  <tr data-id="${t.id}" class="arquivada">
+    <td class="cell-date">${shortDate(t.movement_date)}</td>
+    <td class="cell-valuedate">${shortDate(t.value_date)}</td>
+    <td class="cell-desc">
+      <div class="desc-text">
+        <span>${esc(t.description)}</span>
+        <span class="tag-arquivado">arquivado</span>
+      </div>
+    </td>
+    <td class="cell-note">
+      ${t.note ? `<span class="note-filled">\u{1F4DD} ${esc(t.note)}</span>` : ""}
+    </td>
+    <td><span class="cat-badge">${esc(categoryName(t.category_id))}</span></td>
+    <td class="cell-amount ${amountColor}">${fmt(t.amount)}</td>
+    <td class="cell-actions">
+      <div class="row-actions">
+        <button class="btn-restore" data-action="restore"
+          title="Retirar do arquivo">\u21A9</button>
       </div>
     </td>
   </tr>`;
@@ -219,7 +313,7 @@ function bindRowEvents() {
     if (!target) return;
     const row = target.closest("tr");
     const id = row.dataset.id;
-    const t = state.transactions.find(x => x.id === id);
+    const t = findTransaction(id);
     if (!t) return;
 
     switch (target.dataset.action) {
@@ -228,6 +322,7 @@ function bindRowEvents() {
       case "edit-category": editCategory(target, t); break;
       case "toggle-validated": await toggleValidated(row, target, t); break;
       case "delete": await deleteTransaction(t); break;
+      case "restore": await restoreTransaction(t, target); break;
     }
   };
 }
@@ -399,12 +494,33 @@ async function deleteTransaction(t) {
   if (!ok) return;
   try {
     await db.archiveTransaction(t.id);
-    removeLocal(t.id);
+    archiveLocal(t.id);
     toast("Movimento arquivado.", "ok");
     document.dispatchEvent(new CustomEvent("data-changed"));
   } catch (err) {
     console.error("Erro:", err);
     toast("Erro ao arquivar.", "err");
+  }
+}
+
+/**
+ * Tira um movimento do arquivo.
+ *
+ * Sem confirmação, ao contrário de arquivar: é a acção que desfaz, e
+ * pedir confirmação para desfazer põe-se no caminho de quem já
+ * percebeu que se enganou.
+ */
+async function restoreTransaction(t, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    await db.restoreTransaction(t.id);
+    restoreLocal(t.id);
+    toast("Movimento retirado do arquivo.", "ok");
+    document.dispatchEvent(new CustomEvent("data-changed"));
+  } catch (err) {
+    console.error("Erro ao retirar do arquivo:", err);
+    toast("Não foi possível retirar do arquivo.", "err");
+    if (btn) btn.disabled = false;
   }
 }
 

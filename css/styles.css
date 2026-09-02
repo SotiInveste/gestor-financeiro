@@ -716,3 +716,23 @@ body {
 /* Link mágico como segunda via, visualmente subordinado à entrada
    normal por palavra-passe. */
 .login-alt { margin-top: 8px; font-size: 13px; }
+
+/* ═══ Movimentos arquivados ═══
+   Esbatidos e sem acções de edição: estão à vista para se poder
+   desfazer um engano, não para se continuar a trabalhar neles. */
+.table tbody tr.arquivada td { opacity: .5; }
+.table tbody tr.arquivada:hover td { opacity: .85; }
+
+.tag-arquivado {
+  font-size: 10px; background: var(--tint-amber-bg); color: var(--amber);
+  border: 1px solid var(--tint-amber-bg);
+  border-radius: 4px; padding: 1px 6px; font-weight: 600; flex-shrink: 0;
+}
+
+.btn-restore {
+  border: none; border-radius: 6px; padding: 4px 10px; font-size: 13px;
+  cursor: pointer; font-weight: 700;
+  background: var(--tint-amber-bg); color: var(--amber);
+}
+
+#arquivados-count { font-size: 12px; }

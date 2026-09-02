@@ -13,6 +13,7 @@ import {
 import { renderDashboard } from "./dashboard.js";
 import {
   renderTransactions, initManualForm, validateAll, initTableSorting,
+  initArquivadosToggle,
 } from "./transactions.js";
 import { exportToExcel } from "./export.js";
 import { parseStatement, readFile } from "./import.js";
@@ -94,6 +95,7 @@ async function startApp(session) {
   buildPeriodSelectors();
   initManualForm();
   initTableSorting();
+  initArquivadosToggle();
   initContas();
   initCategoriesPage();
   renderContas();

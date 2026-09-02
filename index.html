@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=35">
+  <link rel="stylesheet" href="css/styles.css?v=36">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -151,9 +151,16 @@
       <!-- ═══ MOVIMENTOS ═══ -->
       <section id="page-transactions" class="page hidden">
 
-        <div class="actions-bar">
-          <button id="btn-validate-all" class="btn btn-ghost">✓ Validar todos</button>
-          <button id="btn-toggle-manual" class="btn btn-outline">+ Movimento manual</button>
+        <div class="actions-bar cat-toolbar">
+          <label class="cat-toggle">
+            <input type="checkbox" id="chk-ver-arquivados">
+            Ver arquivados
+            <span id="arquivados-count" class="muted"></span>
+          </label>
+          <span class="cat-toolbar-botoes">
+            <button id="btn-validate-all" class="btn btn-ghost">✓ Validar todos</button>
+            <button id="btn-toggle-manual" class="btn btn-outline">+ Movimento manual</button>
+          </span>
         </div>
 
         <!-- Formulário manual -->

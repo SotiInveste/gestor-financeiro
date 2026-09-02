@@ -109,6 +109,32 @@ export async function archiveTransaction(id) {
   if (error) throw error;
 }
 
+/**
+ * Movimentos arquivados.
+ *
+ * Consulta à parte, e só quando pedida: são o histórico morto, e
+ * carregá-los no arranque com os outros seria pagar por dados que
+ * quase nunca se olham.
+ */
+export async function fetchArchivedTransactions() {
+  const { data, error } = await sb
+    .from("fin_transactions")
+    .select("*")
+    .not("deleted_at", "is", null)
+    .order("value_date", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Desfaz o arquivo — o movimento volta a contar para os totais. */
+export async function restoreTransaction(id) {
+  const { error } = await sb
+    .from("fin_transactions")
+    .update({ deleted_at: null })
+    .eq("id", id);
+  if (error) throw error;
+}
+
 // ─── Regras de categorização ───
 
 export async function fetchRules() {

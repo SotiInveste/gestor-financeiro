@@ -73,6 +73,11 @@ export function guardarOrdenacao() {
 
 export const state = {
   transactions: [],
+  // Arquivados à parte, e não misturados com os activos: o painel,
+  // os totais e a exportação leem state.transactions, e um movimento
+  // arquivado que aparecesse aí voltaria a contar para o saldo.
+  archived: [],
+  archivedLoaded: false,
   rules: [],
   categories: [],
   categoryGroups: [],
@@ -99,13 +104,23 @@ const COMPARADORES = {
   amount:        (a, b) => Number(a.amount) - Number(b.amount),
 };
 
-/** Movimentos do período selecionado (filtrados pela DATA VALOR). */
-export function currentMonthTransactions() {
+/**
+ * Movimentos do período selecionado (filtrados pela DATA VALOR).
+ *
+ * Por omissão devolve só os activos. Os arquivados entram apenas
+ * quando pedidos explicitamente — a lista de movimentos é a única
+ * que os pede, e mesmo aí só para os mostrar.
+ */
+export function currentMonthTransactions({ incluirArquivados = false } = {}) {
   const { col, dir } = state.sort;
   const cmp = COMPARADORES[col] || COMPARADORES.value_date;
   const sinal = dir === "desc" ? -1 : 1;
 
-  return state.transactions
+  const lista = incluirArquivados
+    ? [...state.transactions, ...state.archived]
+    : state.transactions;
+
+  return lista
     // No modo anual conta o ano inteiro. Sem isto, a página de
     // movimentos e o saldo do cabeçalho ficavam vazios ao escolher
     // "Anual", em vez de mostrarem o ano.
@@ -273,8 +288,38 @@ export function updateLocal(id, patch) {
   return t;
 }
 
-export function removeLocal(id) {
-  state.transactions = state.transactions.filter(t => t.id !== id);
+/** Procura nas duas listas — o id pode ser de um movimento arquivado. */
+export function findTransaction(id) {
+  return state.transactions.find(t => t.id === id)
+    || state.archived.find(t => t.id === id)
+    || null;
+}
+
+/**
+ * Passa um movimento para o arquivo, localmente.
+ *
+ * Move em vez de apagar: se a lista de arquivados já estiver
+ * carregada, o movimento aparece lá de imediato sem ir ao servidor.
+ * Se ainda não estiver, o fetch posterior traz a lista completa e
+ * substitui esta entrada — não há duplicado possível.
+ */
+export function archiveLocal(id, quando = new Date().toISOString()) {
+  const i = state.transactions.findIndex(t => t.id === id);
+  if (i === -1) return null;
+  const [t] = state.transactions.splice(i, 1);
+  t.deleted_at = quando;
+  state.archived.push(t);
+  return t;
+}
+
+/** O caminho inverso: sai do arquivo e volta a contar para os totais. */
+export function restoreLocal(id) {
+  const i = state.archived.findIndex(t => t.id === id);
+  if (i === -1) return null;
+  const [t] = state.archived.splice(i, 1);
+  t.deleted_at = null;
+  state.transactions.push(t);
+  return t;
 }
 
 export function existingHashes() {
