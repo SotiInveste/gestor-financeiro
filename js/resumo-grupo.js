@@ -17,9 +17,9 @@ import { fmt, esc, MONTHS } from "./utils.js";
  * Código do grupo a resumir — fin_category_groups.code.
  *
  * Os 15 grupos semeados pela migração 002 ocupam os códigos 11..25;
- * os criados na aplicação começam em 26.
+ * os criados na aplicação começam em 26. O 27 é o «Despesas Wheelt».
  */
-const GRUPO_CODE = 26;
+const GRUPO_CODE = 27;
 
 /** Rótulo do período em curso, para o subtítulo do cartão. */
 function rotuloPeriodo() {
