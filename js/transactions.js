@@ -14,6 +14,7 @@ import {
 } from "./categories.js";
 import * as db from "./db.js";
 import { toast, confirmModal, setLoading } from "./ui.js";
+import { renderResumoGrupo } from "./resumo-grupo.js";
 
 let manualType = "expense";
 
@@ -167,6 +168,11 @@ export function renderTransactions() {
   const wrap = document.getElementById("table-wrap");
   const empty = document.getElementById("table-empty");
   if (!body || !foot) return; // guarda defensiva
+
+  // Antes de qualquer saída antecipada: o resumo do grupo não depende
+  // da conta filtrada, por isso continua a fazer sentido mesmo num mês
+  // em que a conta escolhida não tenha movimentos nenhuns.
+  renderResumoGrupo();
 
   // O estado das categorias e contas pode ter mudado noutra página.
   refreshManualCategorySelect();

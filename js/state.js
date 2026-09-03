@@ -121,11 +121,7 @@ export function currentMonthTransactions({ incluirArquivados = false } = {}) {
     : state.transactions;
 
   return lista
-    // No modo anual conta o ano inteiro. Sem isto, a página de
-    // movimentos e o saldo do cabeçalho ficavam vazios ao escolher
-    // "Anual", em vez de mostrarem o ano.
-    .filter(t => yearOf(t.value_date) === state.year &&
-      (state.month === ANUAL || monthOf(t.value_date) === state.month))
+    .filter(noPeriodo)
     .filter(passaFiltroConta)
     .sort((a, b) => {
       const r = cmp(a, b) * sinal;
@@ -188,6 +184,21 @@ export function expensesByCategory(list = currentMonthTransactions()) {
       value: Number(value.toFixed(2)),
     }))
     .sort((a, b) => b.value - a.value);
+}
+
+/**
+ * Pertence ao período selecionado, pela DATA VALOR.
+ *
+ * Separado do filtro de conta para quem precisa de um sem o outro —
+ * o resumo por grupo soma todas as contas, mas só do período à vista.
+ *
+ * No modo anual conta o ano inteiro. Sem isto, a página de movimentos
+ * e o saldo do cabeçalho ficavam vazios ao escolher "Anual", em vez
+ * de mostrarem o ano.
+ */
+export function noPeriodo(t) {
+  return yearOf(t.value_date) === state.year &&
+    (state.month === ANUAL || monthOf(t.value_date) === state.month);
 }
 
 /**

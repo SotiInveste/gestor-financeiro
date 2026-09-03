@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=36">
+  <link rel="stylesheet" href="css/styles.css?v=37">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -212,6 +212,11 @@
             </table>
           </div>
         </div>
+
+        <!-- Resumo de um grupo, somado em todas as contas. Fica logo
+             a seguir aos totais do mês, que são a leitura natural
+             anterior. -->
+        <div id="resumo-grupo" class="card resumo-grupo hidden"></div>
 
         <!-- Entrada de dados: fica no fim porque é ocasional.
              O que se consulta todos os dias é a lista acima. -->
