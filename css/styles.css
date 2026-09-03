@@ -749,20 +749,13 @@ body {
 .resumo-head .card-title { margin: 0; }
 .resumo-head .muted { font-size: 12px; }
 
-.resumo-linhas { display: flex; flex-direction: column; }
-.resumo-linha {
-  display: flex; justify-content: space-between; gap: 12px;
-  padding: 6px 0; font-size: 13px;
-  border-bottom: 1px solid var(--border);
-}
-.resumo-linha span:last-child { font-variant-numeric: tabular-nums; }
+/* Cinco colunas em vez das sete da tabela principal, logo não precisa
+   da mesma largura mínima antes de começar a deslizar. */
+.resumo-table { min-width: 560px; }
+.resumo-table th, .resumo-table td { padding: 7px 10px; }
+.resumo-table tbody tr:last-child td { border-bottom: none; }
+.resumo-conta { font-size: 12px; color: var(--text-soft); white-space: nowrap; }
+.resumo-table .foot-label { font-weight: 700; }
+.resumo-table .muted { font-weight: 400; font-size: 12px; }
 
 .resumo-vazio { font-size: 13px; margin: 0; }
-
-.resumo-total {
-  display: flex; justify-content: space-between; gap: 12px;
-  padding-top: 10px; margin-top: 4px;
-  font-weight: 700; font-size: 15px;
-  font-variant-numeric: tabular-nums;
-}
-.resumo-total .muted { font-weight: 400; font-size: 12px; }

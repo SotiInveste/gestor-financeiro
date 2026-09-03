@@ -10,8 +10,8 @@
 // nunca é reutilizado (ver a migração 002).
 // ═══════════════════════════════════════════════════════════
 
-import { state, noPeriodo, ANUAL } from "./state.js";
-import { fmt, esc, MONTHS } from "./utils.js";
+import { state, noPeriodo, ANUAL, accountName } from "./state.js";
+import { fmt, esc, shortDate, MONTHS } from "./utils.js";
 
 /**
  * Código do grupo a resumir — fin_category_groups.code.
@@ -59,39 +59,56 @@ export function renderResumoGrupo() {
   // podem sair de uma conta como de outra, e o que interessa é o
   // total do grupo no período. Daí o noPeriodo em vez do
   // currentMonthTransactions, que aplicaria a conta escolhida.
-  const porCategoria = new Map();
-  let total = 0;
-  let n = 0;
+  //
+  // É também por isso que a coluna da conta existe: sem ela, um total
+  // que junta contas diferentes não se consegue reconciliar com nada.
+  const movimentos = state.transactions
+    .filter(t => noPeriodo(t) && nomes.has(t.category_id))
+    .sort((a, b) =>
+      String(a.value_date).localeCompare(String(b.value_date)) ||
+      String(a.description || "").localeCompare(String(b.description || ""), "pt"));
 
-  state.transactions.filter(noPeriodo).forEach(t => {
-    if (!nomes.has(t.category_id)) return;
-    const v = Number(t.amount);
-    porCategoria.set(t.category_id, (porCategoria.get(t.category_id) || 0) + v);
-    total += v;
-    n += 1;
-  });
-
+  const total = movimentos.reduce((s, t) => s + Number(t.amount), 0);
+  const n = movimentos.length;
   const titulo = `${grupo.emoji || ""} ${grupo.name}`.trim();
-  const linhas = [...porCategoria.entries()]
-    // Maior gasto primeiro. Os valores são negativos nas despesas,
-    // por isso a ordem crescente do valor é a decrescente do gasto.
-    .sort((a, b) => a[1] - b[1]);
+
+  const corpo = n ? `
+    <div class="table-scroll">
+      <table class="table resumo-table">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Categoria</th>
+            <th>Conta</th>
+            <th class="right">Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${movimentos.map(t => `
+            <tr>
+              <td class="cell-date">${shortDate(t.value_date)}</td>
+              <td class="cell-desc">${esc(t.description)}</td>
+              <td>${esc(nomes.get(t.category_id))}</td>
+              <td class="resumo-conta">${esc(accountName(t.bank_account_id))}</td>
+              <td class="cell-amount ${Number(t.amount) < 0 ? "red" : "green"}">${fmt(t.amount)}</td>
+            </tr>`).join("")}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="foot-label">
+              Total<span class="muted"> · ${n} movimento${n === 1 ? "" : "s"}</span>
+            </td>
+            <td class="foot-value ${total < 0 ? "red" : "green"}">${fmt(total)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>` : `<p class="muted resumo-vazio">Sem movimentos neste período.</p>`;
 
   card.innerHTML = `
     <div class="resumo-head">
       <h3 class="card-title">${esc(titulo)}</h3>
       <span class="muted">todas as contas · ${esc(rotuloPeriodo())}</span>
     </div>
-    ${linhas.length ? `
-      <div class="resumo-linhas">
-        ${linhas.map(([id, v]) => `
-          <div class="resumo-linha">
-            <span>${esc(nomes.get(id))}</span>
-            <span class="${v < 0 ? "red" : "green"}">${fmt(v)}</span>
-          </div>`).join("")}
-      </div>` : `<p class="muted resumo-vazio">Sem movimentos neste período.</p>`}
-    <div class="resumo-total">
-      <span>Total<span class="muted"> · ${n} movimento${n === 1 ? "" : "s"}</span></span>
-      <span class="${total < 0 ? "red" : "green"}">${fmt(total)}</span>
-    </div>`;
+    ${corpo}`;
 }
