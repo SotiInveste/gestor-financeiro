@@ -87,7 +87,8 @@ select
       and tablename in ('fin_gift_recipients', 'fin_gifts')
       and qual is not null and with_check is not null)                 as politicas_ok,
   (select count(*) from public.fin_category_groups where code = 29)    as grupo_29,
-  (select coalesce(string_agg(name, ', '), '(nenhuma)')
+  -- c.name qualificado: as duas tabelas do join tem uma coluna name.
+  (select coalesce(string_agg(c.name, ', ' order by c.sort_order), '(nenhuma)')
      from public.fin_categories c
      join public.fin_category_groups g on g.id = c.group_id
     where g.code = 29)                                                 as categorias_do_grupo,
