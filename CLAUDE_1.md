@@ -40,6 +40,7 @@ js/
   contas.js             # listagem de contas e contas manuais
   categorias-page.js    # página de gestão de categorias
   resumo-grupo.js       # quadro de resumo de um grupo, na página de movimentos
+  prendas.js            # página Prendas
   app.js                # arranque e navegação
 supabase/
   migrations/           # SQL aditivo, corrido à mão no SQL Editor
@@ -272,10 +273,64 @@ Quadro por baixo dos totais, na página de movimentos (`js/resumo-grupo.js`).
 
 ## Período: mês ou ano
 
-`state.month` vale 0..11 para os meses e **`ANUAL` (12) para o ano inteiro**,
-a opção no fim do seletor. As setas de navegação não entram no modo anual.
-O painel anual mostra só os KPIs do ano e a evolução mensal; o gráfico de
-evolução saiu dos painéis mensais, onde se repetia em todos os meses.
+`state.month` vale 0..11 para os meses e depois dois sentinelas:
+
+- **`ANUAL` (12)** — o ano inteiro. O painel anual mostra só os KPIs do ano
+  e a evolução mensal; o gráfico de evolução saiu dos painéis mensais, onde
+  se repetia em todos os meses.
+- **`PRENDAS` (13)** — abre a página Prendas.
+
+O conjunto `ANO_INTEIRO` no `state.js` diz quais destes abrangem o ano, e é
+o que o `noPeriodo()` consulta. As setas de navegação não entram em nenhum
+dos dois — chega-se lá pelo seletor.
+
+## Prendas
+
+Página própria (`js/prendas.js`), aberta pelo valor **Prendas** no seletor de
+período. Migrações **010** (tabelas) e **011** (validação e imagem).
+
+Lê os movimentos do **grupo 29**, do ano inteiro e de todas as contas —
+identificado pelo `code`, como o resumo por grupo, e pela mesma razão.
+
+**Um movimento pode dar várias prendas.** Uma compra de 90 € pode ser três
+prendas de 30 € para três pessoas, por isso o preço vive na prenda e a
+relação é um-para-muitos. O aviso «falta X €» por movimento mostra o que
+ainda não foi repartido.
+
+- **Linhas virtuais.** Um movimento sem prendas gravadas aparece como linha
+  já preenchida, mas **não existe na base de dados**. Só é gravada à
+  primeira edição — abrir a página não deve escrever nada. Validar, anexar
+  uma imagem ou dividir passa primeiro pelo `garantir()`, que a materializa.
+- **O título vem da `note` do movimento**, não da `description`: a descrição
+  do banco diz onde se comprou, a nota é onde está escrito o que a prenda é.
+  Sem nota, o título fica vazio de propósito — vê-se o que falta preencher.
+  Depois de gravada, o título é do utilizador e deixa de seguir a nota.
+- **O «evento»** é o nome da categoria do movimento. Derivado, não editável.
+- **Resumo por recetor** com duas linhas cinzentas que são coisas
+  diferentes: «Sem recetor» (prendas sem destinatário) e «Por atribuir»
+  (dinheiro do movimento que ainda não virou prenda). Com as duas, o total
+  bate certo com o dos movimentos do grupo no ano; sem a segunda dava menos
+  e parecia um erro.
+
+### Imagens: miniatura em base64, sem Supabase Storage
+
+A imagem é reduzida a **320 px de lado maior** e comprimida para JPEG no
+browser (`createImageBitmap` + canvas), e só a miniatura sobe — o ficheiro
+original nunca chega ao servidor. Medido: uma foto de telemóvel de 4 MB fica
+em **~26 KB**, numa passagem, em cerca de 180 ms. Há duas passagens de
+recurso, a 0,5 e a 0,35 de qualidade, se passar dos 150 KB.
+
+O `imageOrientation: "from-image"` é obrigatório — sem ele, fotos de
+telemóvel aparecem deitadas.
+
+**Porque não o Storage:** guardando-se apenas a miniatura, um bucket traria
+políticas próprias, URLs assinados e mais uma superfície para falhar, a troco
+de nada que aqui faça falta. Se um dia se quiser a imagem em tamanho real,
+esta decisão inverte-se — 26 KB por linha é o que a torna aceitável.
+
+A miniatura vive em `fin_gift_images`, com o `gift_id` como chave primária
+(uma imagem por prenda, e substituir é um upsert). Tabela à parte para o
+`fetchGifts()` não arrastar as imagens atrás.
 
 ## Deduplicação
 
