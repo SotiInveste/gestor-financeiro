@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=38">
+  <link rel="stylesheet" href="css/styles.css?v=39">
 
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
@@ -245,6 +245,20 @@
       </section>
 
       <!-- ═══ CATEGORIAS ═══ -->
+      <!-- ═══ PRENDAS ═══
+           Chega-se aqui pelo seletor de período, não por um separador:
+           é uma vista sobre o ano inteiro. -->
+      <section id="page-prendas" class="page hidden">
+        <div class="actions-bar cat-toolbar">
+          <span class="muted">Prendas do ano, de todas as contas</span>
+          <span class="cat-toolbar-botoes">
+            <button id="btn-gerir-recetores" class="btn btn-ghost">Gerir recetores</button>
+            <button id="btn-novo-recetor" class="btn btn-outline">+ Novo recetor</button>
+          </span>
+        </div>
+        <div id="prendas-conteudo"></div>
+      </section>
+
       <section id="page-categorias" class="page hidden">
         <div class="actions-bar cat-toolbar">
           <label class="cat-toggle">

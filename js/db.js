@@ -327,6 +327,81 @@ export async function deleteGroup(id) {
   if (error) throw error;
 }
 
+// ─── Prendas (migração 010) ───
+
+export async function fetchGiftRecipients() {
+  const { data, error } = await sb
+    .from("fin_gift_recipients")
+    .select("*")
+    .order("name");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function insertGiftRecipient(name) {
+  const { data, error } = await sb
+    .from("fin_gift_recipients")
+    .insert({ user_id: currentUserId, name: name.trim() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateGiftRecipient(id, patch) {
+  const { data, error } = await sb
+    .from("fin_gift_recipients")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Todas as prendas do utilizador.
+ *
+ * Sem filtro por ano: a tabela é pequena — uma linha por prenda, não
+ * por movimento — e filtrar aqui obrigaria a ir ao servidor sempre
+ * que se mudasse de ano no seletor.
+ */
+export async function fetchGifts() {
+  const { data, error } = await sb
+    .from("fin_gifts")
+    .select("*")
+    .order("created_at");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function insertGift(row) {
+  const { data, error } = await sb
+    .from("fin_gifts")
+    .insert({ ...row, user_id: currentUserId })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateGift(id, patch) {
+  const { data, error } = await sb
+    .from("fin_gifts")
+    .update(patch)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Apagar mesmo: uma prenda não é histórico financeiro, o movimento é. */
+export async function deleteGift(id) {
+  const { error } = await sb.from("fin_gifts").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ─── Contas bancárias ligadas (open banking) ───
 
 /** Cria uma conta manual — sem open banking por trás. */

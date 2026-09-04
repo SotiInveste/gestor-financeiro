@@ -8,7 +8,8 @@ import {
 } from "./auth.js";
 import * as db from "./db.js";
 import {
-  state, currentMonthTransactions, monthTotals, addLocal, existingHashes, ANUAL,
+  state, currentMonthTransactions, monthTotals, addLocal, existingHashes,
+  ANUAL, PRENDAS,
 } from "./state.js";
 import { renderDashboard } from "./dashboard.js";
 import {
@@ -23,6 +24,7 @@ import { initTheme } from "./theme.js";
 import { initOpenBanking } from "./openbanking.js";
 import { initContas, renderContas, construirFiltroContas } from "./contas.js";
 import { initCategoriesPage, renderCategoriesPage } from "./categorias-page.js";
+import { initPrendasPage, renderPrendasPage } from "./prendas.js";
 
 // ═══ Arranque ═══
 
@@ -98,6 +100,7 @@ async function startApp(session) {
   initArquivadosToggle();
   initContas();
   initCategoriesPage();
+  initPrendasPage();
   renderContas();
   construirFiltroContas();
   initTheme();
@@ -213,7 +216,8 @@ function buildPeriodSelectors() {
 
   monthSel.innerHTML = MONTHS.map((m, i) =>
     `<option value="${i}"${i === state.month ? " selected" : ""}>${m}</option>`).join("") +
-    `<option value="${ANUAL}"${state.month === ANUAL ? " selected" : ""}>Anual</option>`;
+    `<option value="${ANUAL}"${state.month === ANUAL ? " selected" : ""}>Anual</option>` +
+    `<option value="${PRENDAS}"${state.month === PRENDAS ? " selected" : ""}>Prendas</option>`;
 
   const years = new Set(state.transactions.map(t => Number(t.value_date.slice(0, 4))));
   years.add(new Date().getFullYear());
@@ -225,9 +229,10 @@ function buildPeriodSelectors() {
 }
 
 function shiftMonth(delta) {
-  // As setas percorrem só os meses. A vista anual alcança-se pelo
-  // seletor — entrar nela por engano ao navegar seria confuso.
-  if (state.month === ANUAL) return;
+  // As setas percorrem só os meses. As vistas Anual e Prendas
+  // alcançam-se pelo seletor — entrar nelas por engano ao navegar
+  // seria confuso.
+  if (state.month === ANUAL || state.month === PRENDAS) return;
 
   let m = state.month + delta;
   let y = state.year;
@@ -241,7 +246,19 @@ function shiftMonth(delta) {
 
 // ═══ Navegação ═══
 
+// Último mês escolhido antes de entrar nas Prendas, para lá voltar
+// ao carregar num separador. Sem isto, sair das Prendas atirava para
+// o mês actual e perdia-se o período em que se estava.
+let mesAntesDasPrendas = null;
+
 function switchPage(page) {
+  // As Prendas ocupam a área toda: carregar num separador é sair
+  // delas, e o seletor tem de deixar de as mostrar.
+  if (state.month === PRENDAS) {
+    state.month = mesAntesDasPrendas ?? new Date().getMonth();
+    buildPeriodSelectors();
+  }
+
   state.page = page;
   document.querySelectorAll(".nav-btn").forEach(b =>
     b.classList.toggle("active", b.dataset.page === page));
@@ -261,17 +278,28 @@ function renderAll() {
   const list = currentMonthTransactions();
   const totals = monthTotals(list);
 
-  const anual = state.month === ANUAL;
+  const prendas = state.month === PRENDAS;
+  const anoInteiro = state.month === ANUAL || prendas;
 
   document.getElementById("period-count").textContent =
     `${list.length} movimento${list.length === 1 ? "" : "s"}` +
-    (anual ? " no ano" : "");
+    (anoInteiro ? " no ano" : "");
 
   // Sem meses para percorrer, as setas não têm função.
   ["prev-month", "next-month"].forEach(id => {
     const b = document.getElementById(id);
-    if (b) b.classList.toggle("hidden", anual);
+    if (b) b.classList.toggle("hidden", anoInteiro);
   });
+
+  // As Prendas substituem a página que estiver escolhida, em vez de
+  // serem um separador — chega-se lá pelo seletor de período.
+  document.getElementById("page-prendas").classList.toggle("hidden", !prendas);
+  if (prendas) {
+    ["page-dashboard", "page-transactions", "page-categorias"].forEach(id =>
+      document.getElementById(id).classList.add("hidden"));
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    renderPrendasPage();
+  }
 
   const balanceEl = document.getElementById("header-balance");
   balanceEl.textContent = `Saldo: ${fmt(totals.balance)}`;
@@ -282,6 +310,7 @@ function renderAll() {
   badge.textContent = pending;
   badge.classList.toggle("hidden", pending === 0);
 
+  if (prendas) return;
   if (state.page === "dashboard") renderDashboard();
   else if (state.page === "categorias") renderCategoriesPage();
   else renderTransactions();
@@ -395,7 +424,9 @@ function bindEvents() {
   });
 
   document.getElementById("select-month").onchange = e => {
-    state.month = Number(e.target.value);
+    const novo = Number(e.target.value);
+    if (novo === PRENDAS && state.month !== PRENDAS) mesAntesDasPrendas = state.month;
+    state.month = novo;
     renderAll();
   };
   document.getElementById("select-year").onchange = e => {

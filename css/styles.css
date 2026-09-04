@@ -759,3 +759,32 @@ body {
 .resumo-table .muted { font-weight: 400; font-size: 12px; }
 
 .resumo-vazio { font-size: 13px; margin: 0; }
+
+/* ═══ Prendas ═══
+   Uma linha por prenda; a data e o movimento aparecem só na primeira
+   linha de cada movimento, para se ver de relance onde um acaba e o
+   outro começa. */
+.prendas-table { min-width: 900px; }
+.prendas-table td { vertical-align: middle; }
+.prendas-table input.inline,
+.prendas-table select.inline { width: 100%; }
+
+.prenda-mov { min-width: 210px; }
+.prenda-mov-desc { font-size: 13px; font-weight: 500; }
+.prenda-mov-meta { font-size: 11px; margin-top: 2px; }
+
+/* O que falta atribuir de um movimento. Âmbar e não vermelho: é um
+   aviso de trabalho por acabar, não um erro. */
+.prenda-resta { color: var(--amber); font-weight: 600; }
+
+.prenda-evento { font-size: 12px; color: var(--text-soft); white-space: nowrap; }
+
+/* Linhas ainda não gravadas: a prenda existe no ecrã mas não na base
+   de dados, e passa a existir à primeira edição. */
+.prendas-table tr.virtual .prenda-mov-desc { opacity: .75; }
+
+.btn-split {
+  border: none; border-radius: 6px; padding: 4px 10px; font-size: 13px;
+  cursor: pointer; font-weight: 700;
+  background: var(--neutral-bg); color: var(--neutral-fg);
+}

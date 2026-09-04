@@ -17,6 +17,17 @@ import { monthOf, yearOf, makeHash } from "./utils.js";
  */
 export const ANUAL = 12;
 
+/**
+ * Valor de state.month que abre a página das Prendas.
+ *
+ * Vive no seletor de meses, a seguir ao Anual, porque é assim que se
+ * lá chega. Não é um mês nem um período: é uma vista sobre o ano.
+ */
+export const PRENDAS = 13;
+
+/** Escolhas do seletor que abrangem o ano inteiro em vez de um mês. */
+const ANO_INTEIRO = new Set([ANUAL, PRENDAS]);
+
 const SORT_KEY = "gestorfin-sort";
 const CONTA_KEY = "gestorfin-conta";
 const SORT_OMISSAO = { col: "value_date", dir: "asc" };
@@ -198,7 +209,7 @@ export function expensesByCategory(list = currentMonthTransactions()) {
  */
 export function noPeriodo(t) {
   return yearOf(t.value_date) === state.year &&
-    (state.month === ANUAL || monthOf(t.value_date) === state.month);
+    (ANO_INTEIRO.has(state.month) || monthOf(t.value_date) === state.month);
 }
 
 /**
