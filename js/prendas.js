@@ -127,9 +127,13 @@ export async function renderPrendasPage() {
  * Linhas de um movimento.
  *
  * Sem prendas gravadas, mostra-se uma linha virtual já preenchida
- * com a descrição e o valor do movimento. Só passa a existir na base
- * de dados quando for editada — abrir a página não deve escrever
- * nada.
+ * com a NOTA do movimento e o valor. Só passa a existir na base de
+ * dados quando for editada — abrir a página não deve escrever nada.
+ *
+ * O título vem da nota e não da descrição: a descrição do banco diz
+ * onde se comprou («COMPRA 1211 FNAC»), a nota é onde fica escrito o
+ * que é a prenda. Um movimento sem nota fica com o título vazio, de
+ * propósito — assim vê-se logo o que falta preencher.
  */
 function linhasDe(t, porMovimento) {
   const existentes = porMovimento.get(t.id) || [];
@@ -138,7 +142,7 @@ function linhasDe(t, porMovimento) {
     virtual: true,
     id: `virtual-${t.id}`,
     transaction_id: t.id,
-    title: t.description || "",
+    title: t.note || "",
     price: Math.abs(Number(t.amount)),
     recipient_id: null,
   }];
