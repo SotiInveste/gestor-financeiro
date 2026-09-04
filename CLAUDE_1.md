@@ -7,6 +7,12 @@ Interface em português europeu.
 
 - **Frontend**: HTML + CSS + JavaScript vanilla, módulos ES (`type="module"`). Sem build step, sem framework, sem bundler.
 - **Bibliotecas** (todas via CDN, carregadas como `<script>` no `index.html`): Supabase JS SDK, `xlsx-js-style`, Chart.js.
+  ⚠️ O CDN pode mudar caminhos sem aviso e a app parte em silêncio: em
+  01/09/2026 o `xlsx-js-style/dist/xlsx-js-style.min.js` passou a devolver
+  404 e a importação morria com `XLSX is not defined`. O caminho certo é
+  `dist/xlsx.bundle.js` (o `bundle` traz o `cpexcel`, preciso para os
+  acentos do extrato). Perante um erro de "não está definido", confirmar
+  primeiro se o ficheiro do CDN ainda existe.
 - **Backend**: Supabase (PostgreSQL + Auth + RLS + Edge Functions em Deno).
 - **Hosting**: GitHub Pages, servido da raiz do repositório.
 - **Banco**: ActivoBank (extrato `.xlsx`; integração open banking via Enable Banking em curso).
@@ -31,7 +37,9 @@ js/
   ui.js                 # toasts, modais, spinners
   utils.js              # datas, formatação, hashes
   openbanking.js        # ligação ao banco, sincronização, secção "Banco ligado"
+  contas.js             # listagem de contas e contas manuais
   categorias-page.js    # página de gestão de categorias
+  resumo-grupo.js       # quadro de resumo de um grupo, na página de movimentos
   app.js                # arranque e navegação
 supabase/
   migrations/           # SQL aditivo, corrido à mão no SQL Editor
@@ -186,8 +194,12 @@ a regra. É esta aprendizagem que reduz o trabalho mensal — não a remover.
 Migradas de constantes para tabelas em 26/08/2026 (migrações 002 a 004).
 
 - `fin_category_groups` — 15 grupos, com `emoji` e `sort_order`.
-- `fin_categories` — 59 categorias, com `kind` (`income`/`expense`),
-  `sort_order`, `archived_at` e `is_system`.
+- `fin_categories` — 59 categorias de raiz, com `kind`
+  (`income`/`expense`/`saving`), `sort_order`, `archived_at` e `is_system`.
+- **Espaços de códigos separados:** os 15 grupos semeados ocupam 11..25 e
+  as 59 categorias semeadas 100..158. Tudo o que se cria na aplicação
+  continua em `max(code) + 1` dentro do seu espaço — grupos a partir de 26,
+  categorias a partir de 159.
 - **`code`** — inteiro curto e estável, **nunca reutilizado**. É a chave que o
   bot do Telegram usa no `callback_data`, para criar ou reordenar categorias
   não deslocar mensagens já enviadas.
@@ -200,6 +212,70 @@ Migradas de constantes para tabelas em 26/08/2026 (migrações 002 a 004).
 
 **Por fazer (Fase 6):** largar `category_legacy` de `fin_transactions` e
 `fin_rules`, mas só depois de um fecho de mês completo sem incidentes.
+
+## Poupança e o saldo
+
+Terceiro tipo, a par de receita e despesa, desde 29/08/2026. Cor dourada.
+
+- **Uma entrega para a poupança é um valor negativo** — sai da conta, tal
+  como uma despesa. Um valor positivo numa categoria de poupança é lido
+  como um **levantamento** e reduz o total poupado. O formulário manual
+  força o sinal; movimentos do banco e regras não.
+- A poupança sai do saldo (`balance = income - expense - saving`): o
+  dinheiro saiu mesmo da conta e o saldo tem de continuar a bater certo
+  com o do banco. O que se separa é a natureza da saída.
+
+**Lição de 03/09/2026 — o saldo do mês é a soma pura dos `amount`.**
+Aquela fórmula simplifica algebricamente para `Σ amount`, seja qual for o
+`kind`. Mudar um movimento de despesa para poupança move os KPIs mas
+**não mexe no saldo**. Logo, um saldo errado nunca é um problema de
+classificação: ou faltam/sobram linhas, ou há um sinal trocado. Verificar
+isso primeiro poupa horas.
+
+**Armadilha das regras.** As regras de categorização comparam só o texto
+da descrição e **nunca olham para o sinal**. Uma palavra-chave que sirva
+nos dois sentidos — `SORAIA` apanha tanto `TRF P/ Soraia` (saída) como
+`TRF DE SORAIA` (entrada) — manda entradas para uma categoria de
+poupança, onde passam a contar como levantamentos e inflacionam o saldo.
+
+## Arquivo de movimentos
+
+Interruptor "Ver arquivados" na lista, desde 02/09/2026, com acção de repor.
+
+- Os arquivados **vivem em `state.archived`, fora de `state.transactions`**.
+  O painel, os totais, a exportação e o saldo do cabeçalho leem
+  `state.transactions`; um arquivado que aparecesse aí voltava a contar
+  para o saldo.
+- `currentMonthTransactions()` só os devolve com `{ incluirArquivados: true }`,
+  e o único que pede isso é a tabela, para os desenhar. **Os totais do
+  rodapé saem sempre dos activos**, ligado ou desligado o interruptor.
+- São carregados à primeira vez que são pedidos (`db.fetchArchivedTransactions`)
+  e ficam em memória até ao fim da sessão.
+- Um movimento arquivado não se edita: a linha não leva `data-action`
+  nenhum, só o botão de repor.
+
+## Resumo por grupo
+
+Quadro por baixo dos totais, na página de movimentos (`js/resumo-grupo.js`).
+
+- **O grupo é identificado pelo `code`, nunca pelo nome nem pelo id.** O
+  nome muda a qualquer momento na página de categorias e o id é um uuid
+  diferente em cada base de dados. A constante é `GRUPO_CODE` no topo do
+  módulo — hoje 27, o «Despesas Wheelt».
+- **Soma todas as contas**, ao contrário dos totais logo acima, que
+  respeitam o filtro. Por isso lista a conta de origem de cada movimento
+  e o subtítulo diz «todas as contas» — sem isso seria uma armadilha.
+- Usa `noPeriodo()` do `state.js`, que é o filtro de período sem o filtro
+  de conta. Foi extraído do `currentMonthTransactions` por causa disto.
+- Se o código não existir, esconde-se e escreve na consola a lista de
+  grupos com os respectivos códigos.
+
+## Período: mês ou ano
+
+`state.month` vale 0..11 para os meses e **`ANUAL` (12) para o ano inteiro**,
+a opção no fim do seletor. As setas de navegação não entram no modo anual.
+O painel anual mostra só os KPIs do ano e a evolução mensal; o gráfico de
+evolução saiu dos painéis mensais, onde se repetia em todos os meses.
 
 ## Deduplicação
 
@@ -214,6 +290,14 @@ Migradas de constantes para tabelas em 26/08/2026 (migrações 002 a 004).
   sem `source_hash`, para que a importação de Excel reconheça os movimentos que
   vieram da API. A descrição das duas origens nem sempre coincide, por isso a
   proteção é boa mas não é infalível.
+- **Limite conhecido (03/09/2026):** o `seenInFile` do `import.js` descarta
+  linhas com o mesmo hash **dentro do mesmo ficheiro**. Dois movimentos
+  legítimos e idênticos no mesmo dia ficam indistinguíveis e o segundo
+  desaparece sem aviso. Acontece a sério: o extrato de janeiro de 2026 traz
+  `TRANSFERENCIA - VENCIMENTO 1097,00` duas vezes a 05/01, e a coluna de
+  saldo do banco confirma as duas. Arranjo, se vier a fazer falta: contar
+  ocorrências em vez de bloquear — a n-ésima linha igual só é descartada se
+  já existirem n iguais na base de dados.
 
 ## Integração open banking (a funcionar)
 
