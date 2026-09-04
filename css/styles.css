@@ -764,18 +764,39 @@ body {
    Uma linha por prenda; a data e o movimento aparecem só na primeira
    linha de cada movimento, para se ver de relance onde um acaba e o
    outro começa. */
-.prendas-table { min-width: 900px; }
+.prendas-table { min-width: 780px; }
 .prendas-table td { vertical-align: middle; }
 .prendas-table input.inline,
 .prendas-table select.inline { width: 100%; }
 
-.prenda-mov { min-width: 210px; }
-.prenda-mov-desc { font-size: 13px; font-weight: 500; }
-.prenda-mov-meta { font-size: 11px; margin-top: 2px; }
-
-/* O que falta atribuir de um movimento. Âmbar e não vermelho: é um
+/* O que falta atribuir de um movimento. Fica sob a data, que é o que
+   agora marca o início de cada movimento. Âmbar e não vermelho: é um
    aviso de trabalho por acabar, não um erro. */
-.prenda-resta { color: var(--amber); font-weight: 600; }
+.prenda-resta { color: var(--amber); font-weight: 600; font-size: 11px; margin-top: 2px; }
+
+/* Sem a coluna do movimento, é este traço que mostra onde acaba um
+   movimento e começa o seguinte. */
+.prendas-table tbody tr.grupo-inicio td { border-top: 2px solid var(--border); }
+.prendas-table tbody tr.grupo-inicio:first-child td { border-top: none; }
+
+/* ─── Miniatura ─── */
+.prenda-img-cel { width: 76px; white-space: nowrap; }
+
+.prenda-img {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; cursor: pointer; overflow: hidden;
+  border: 1px dashed var(--border-strong); border-radius: 8px;
+  background: var(--surface-soft); vertical-align: middle;
+}
+.prenda-img:hover { border-color: var(--blue); }
+.prenda-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+.prenda-img-vazia { font-size: 18px; color: var(--faint); line-height: 1; }
+
+.prenda-img-tirar {
+  border: none; background: none; cursor: pointer; padding: 2px 4px;
+  font-size: 11px; color: var(--faint); vertical-align: middle;
+}
+.prenda-img-tirar:hover { color: var(--red); }
 
 .prenda-evento { font-size: 12px; color: var(--text-soft); white-space: nowrap; }
 

@@ -402,6 +402,33 @@ export async function deleteGift(id) {
   if (error) throw error;
 }
 
+/**
+ * Miniaturas das prendas (migração 011).
+ *
+ * Tabela à parte para o fetchGifts não arrastar as imagens atrás.
+ * Cada linha é um data URI já reduzido no browser.
+ */
+export async function fetchGiftImages() {
+  const { data, error } = await sb
+    .from("fin_gift_images")
+    .select("gift_id, data");
+  if (error) throw error;
+  return data || [];
+}
+
+/** Upsert e não insert: o gift_id é a chave primária, uma imagem por prenda. */
+export async function upsertGiftImage(giftId, data) {
+  const { error } = await sb
+    .from("fin_gift_images")
+    .upsert({ gift_id: giftId, user_id: currentUserId, data }, { onConflict: "gift_id" });
+  if (error) throw error;
+}
+
+export async function deleteGiftImage(giftId) {
+  const { error } = await sb.from("fin_gift_images").delete().eq("gift_id", giftId);
+  if (error) throw error;
+}
+
 // ─── Contas bancárias ligadas (open banking) ───
 
 /** Cria uma conta manual — sem open banking por trás. */

@@ -6,8 +6,8 @@
 // uma compra de 90 € pode ser três prendas de 30 € para três
 // pessoas. Daí o preço viver na prenda e não no movimento.
 //
-// Módulo isolado, com as suas próprias tabelas (migração 010). Se
-// falhar, o resto da aplicação continua a andar.
+// Módulo isolado, com as suas próprias tabelas (migrações 010/011).
+// Se falhar, o resto da aplicação continua a andar.
 // ═══════════════════════════════════════════════════════════
 
 import * as db from "./db.js";
@@ -18,10 +18,28 @@ import { toast, confirmModal } from "./ui.js";
 /** Código do grupo cujas categorias contam como prendas. */
 const GRUPO_CODE = 29;
 
+// ─── Miniaturas ───
+
+/**
+ * Lado maior da miniatura, em pixéis.
+ *
+ * A imagem só é mostrada pequena na tabela, mas 320 dá margem para
+ * ecrãs de alta densidade sem a fazer pesar.
+ */
+const LADO_MAX = 320;
+const QUALIDADE = 0.72;
+
+/** Acima disto volta a comprimir com menos qualidade. ~150 KB. */
+const LIMITE_CHARS = 150_000;
+
+/** O ficheiro de origem não chega a ser gravado, mas é lido para memória. */
+const LIMITE_FICHEIRO = 25 * 1024 * 1024;
+
 // Vivem aqui e não no state.js: nada fora desta página os usa, e o
 // state partilhado não deve crescer com dados de uma vista só.
 let recetores = [];
 let prendas = [];
+let imagens = new Map();   // gift_id → data URI
 let carregado = false;
 let erroCarregamento = null;
 // Promessa em curso, para dois renders seguidos não dispararem duas
@@ -30,26 +48,24 @@ let aCarregar = null;
 
 // ═══ Carregamento ═══
 
-/**
- * Traz recetores e prendas do servidor.
- *
- * Só à primeira visita — depois disso o estado local é mantido a par
- * a cada gravação, como no resto da aplicação.
- */
 async function carregar() {
   try {
-    [recetores, prendas] = await Promise.all([
+    const [rec, gifts, imgs] = await Promise.all([
       db.fetchGiftRecipients(),
       db.fetchGifts(),
+      db.fetchGiftImages(),
     ]);
+    recetores = rec;
+    prendas = gifts;
+    imagens = new Map(imgs.map(i => [i.gift_id, i.data]));
     carregado = true;
     erroCarregamento = null;
   } catch (err) {
     console.error("Erro ao carregar as prendas:", err);
-    // A causa mais provável na primeira utilização é a migração não
-    // ter sido corrida. Dizê-lo poupa uma investigação.
-    erroCarregamento = /relation|does not exist|schema cache/i.test(err?.message || "")
-      ? "As tabelas das prendas ainda não existem. Corre a migração 010_prendas.sql no SQL Editor do Supabase."
+    // A causa mais provável na primeira utilização é uma migração
+    // por correr. Dizê-lo poupa uma investigação.
+    erroCarregamento = /relation|does not exist|schema cache|column/i.test(err?.message || "")
+      ? "Faltam tabelas ou colunas das prendas. Corre as migrações 010_prendas.sql e 011_prendas_validacao_imagem.sql no SQL Editor do Supabase."
       : (err?.message || "Não foi possível carregar as prendas.");
   }
 }
@@ -120,7 +136,7 @@ export async function renderPrendasPage() {
 
   wrap.innerHTML = tabelaHTML(movimentos, porMovimento, eventos) +
     resumoHTML(movimentos, porMovimento);
-  ligarEventos(movimentos, porMovimento);
+  ligarEventos();
 }
 
 /**
@@ -145,6 +161,7 @@ function linhasDe(t, porMovimento) {
     title: t.note || "",
     price: Math.abs(Number(t.amount)),
     recipient_id: null,
+    is_validated: false,
   }];
 }
 
@@ -162,23 +179,45 @@ function opcoesRecetor(selecionado) {
     `<option value="__novo__">+ Novo recetor…</option>`;
 }
 
+/**
+ * Célula da imagem.
+ *
+ * O rótulo inteiro é o alvo do clique, com a miniatura lá dentro:
+ * carregar na imagem substitui-a, e no espaço vazio escolhe a
+ * primeira. Uma prenda ainda virtual não pode ter imagem — não tem
+ * id na base de dados — por isso é gravada antes do upload.
+ */
+function celulaImagem(p) {
+  const src = imagens.get(p.id);
+  return `
+    <td class="prenda-img-cel">
+      <label class="prenda-img" title="${src ? "Trocar a imagem" : "Escolher uma imagem"}">
+        <input type="file" accept="image/*" class="prenda-ficheiro" hidden>
+        ${src
+          ? `<img src="${src}" alt="" class="prenda-thumb">`
+          : `<span class="prenda-img-vazia">+</span>`}
+      </label>
+      ${src ? `<button class="prenda-img-tirar" data-accao="tirar-imagem"
+                 title="Remover a imagem">✕</button>` : ""}
+    </td>`;
+}
+
 function tabelaHTML(movimentos, porMovimento, eventos) {
   const linhas = movimentos.map(t => {
     const items = linhasDe(t, porMovimento);
-    const totalPrendas = items.reduce((s, p) => s + Number(p.price || 0), 0);
     const valor = Math.abs(Number(t.amount));
-    const resta = Number((valor - totalPrendas).toFixed(2));
+    const atribuido = items.reduce((s, p) => s + Number(p.price || 0), 0);
+    const resta = Number((valor - atribuido).toFixed(2));
 
     return items.map((p, i) => `
-      <tr data-gift="${p.id}" data-tx="${t.id}"${p.virtual ? ' class="virtual"' : ""}>
-        <td class="cell-date">${i === 0 ? shortDate(t.value_date) : ""}</td>
-        <td class="cell-desc prenda-mov">
+      <tr data-gift="${p.id}" data-tx="${t.id}"
+          class="${i === 0 ? "grupo-inicio " : ""}${p.virtual ? "virtual " : ""}${p.is_validated ? "validated" : ""}">
+        <td class="cell-date">
           ${i === 0 ? `
-            <div class="prenda-mov-desc">${esc(t.description)}</div>
-            <div class="prenda-mov-meta muted">
-              ${fmt(valor)}${resta ? ` · <span class="prenda-resta">falta ${fmt(resta)}</span>` : ""}
-            </div>` : ""}
+            <div>${shortDate(t.value_date)}</div>
+            ${resta ? `<div class="prenda-resta">falta ${fmt(resta)}</div>` : ""}` : ""}
         </td>
+        ${celulaImagem(p)}
         <td><input type="text" class="inline prenda-titulo" value="${esc(p.title)}"
               placeholder="Título da prenda"></td>
         <td class="prenda-evento">${esc(eventos.get(t.category_id) || "—")}</td>
@@ -189,6 +228,8 @@ function tabelaHTML(movimentos, porMovimento, eventos) {
         </td>
         <td class="cell-actions">
           <div class="row-actions">
+            <button class="btn-check${p.is_validated ? " on" : ""}" data-accao="validar"
+              title="${p.is_validated ? "Marcar como não tratada" : "Marcar como tratada"}">✓</button>
             <button class="btn-split" data-accao="dividir" title="Dividir em mais uma prenda">+</button>
             ${p.virtual ? "" :
               `<button class="btn-del" data-accao="apagar" title="Apagar prenda">✕</button>`}
@@ -203,7 +244,7 @@ function tabelaHTML(movimentos, porMovimento, eventos) {
         <table class="table prendas-table">
           <thead>
             <tr>
-              <th>Data</th><th>Movimento</th><th>Título</th>
+              <th>Data</th><th>Imagem</th><th>Título</th>
               <th>Evento</th><th>Recetor</th><th class="right">Preço</th><th></th>
             </tr>
           </thead>
@@ -276,9 +317,61 @@ function resumoHTML(movimentos, porMovimento) {
     </div>`;
 }
 
+// ═══ Compressão da imagem ═══
+
+/**
+ * Reduz e comprime no browser, antes de subir.
+ *
+ * O que se guarda é só a miniatura: o ficheiro original nunca chega
+ * ao servidor. Se ainda assim ficar grande — fotografias com muito
+ * detalhe — repete-se com menos qualidade em vez de deixar passar.
+ *
+ * O imageOrientation "from-image" respeita o EXIF; sem ele, fotos
+ * tiradas ao telemóvel aparecem deitadas.
+ */
+async function miniatura(file) {
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const escala = Math.min(1, LADO_MAX / Math.max(bitmap.width, bitmap.height));
+  const w = Math.max(1, Math.round(bitmap.width * escala));
+  const h = Math.max(1, Math.round(bitmap.height * escala));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close?.();
+
+  let data = canvas.toDataURL("image/jpeg", QUALIDADE);
+  if (data.length > LIMITE_CHARS) data = canvas.toDataURL("image/jpeg", 0.5);
+  if (data.length > LIMITE_CHARS) data = canvas.toDataURL("image/jpeg", 0.35);
+  return data;
+}
+
+async function subirImagem(giftId, file) {
+  if (!file.type.startsWith("image/")) {
+    toast("Escolhe um ficheiro de imagem.", "err");
+    return;
+  }
+  if (file.size > LIMITE_FICHEIRO) {
+    toast("Imagem demasiado grande para processar.", "err");
+    return;
+  }
+
+  try {
+    const data = await miniatura(file);
+    await db.upsertGiftImage(giftId, data);
+    imagens.set(giftId, data);
+    await renderPrendasPage();
+  } catch (err) {
+    console.error("Erro ao gravar a imagem:", err);
+    toast("Não foi possível gravar a imagem.", "err");
+  }
+}
+
 // ═══ Edição ═══
 
-function ligarEventos(movimentos, porMovimento) {
+function ligarEventos() {
   const wrap = document.getElementById("prendas-conteudo");
 
   wrap.querySelectorAll("tr[data-gift]").forEach(row => {
@@ -289,6 +382,7 @@ function ligarEventos(movimentos, porMovimento) {
     const titulo = row.querySelector(".prenda-titulo");
     const preco = row.querySelector(".prenda-preco");
     const recetor = row.querySelector(".prenda-recetor");
+    const ficheiro = row.querySelector(".prenda-ficheiro");
 
     const valores = () => ({
       title: titulo.value.trim(),
@@ -296,12 +390,23 @@ function ligarEventos(movimentos, porMovimento) {
       recipient_id: recetor.value && recetor.value !== "__novo__" ? recetor.value : null,
     });
 
+    /**
+     * Devolve o id real da prenda, criando-a se ainda for virtual.
+     *
+     * Validar ou anexar uma imagem precisa de uma linha que exista na
+     * base de dados — não há onde pendurar o registo antes disso.
+     */
+    const garantir = async (extra = {}) => {
+      if (!virtual) return giftId;
+      const nova = await db.insertGift({ transaction_id: txId, ...valores(), ...extra });
+      prendas.push(nova);
+      return nova.id;
+    };
+
     const gravar = async () => {
       try {
-        if (virtual) {
-          const nova = await db.insertGift({ transaction_id: txId, ...valores() });
-          prendas.push(nova);
-        } else {
+        if (virtual) await garantir();
+        else {
           const act = await db.updateGift(giftId, valores());
           prendas = prendas.map(p => (p.id === giftId ? act : p));
         }
@@ -325,18 +430,63 @@ function ligarEventos(movimentos, porMovimento) {
       await gravar();
     };
 
+    if (ficheiro) {
+      ficheiro.onchange = async () => {
+        const file = ficheiro.files?.[0];
+        ficheiro.value = "";
+        if (!file) return;
+        try {
+          const id = await garantir();
+          await subirImagem(id, file);
+        } catch (err) {
+          console.error("Erro ao anexar a imagem:", err);
+          toast("Não foi possível anexar a imagem.", "err");
+        }
+      };
+    }
+
     row.querySelectorAll("[data-accao]").forEach(btn => {
       btn.onclick = async () => {
         btn.disabled = true;
         try {
-          if (btn.dataset.accao === "dividir") await dividir(txId, giftId, virtual, valores());
-          else await apagar(giftId);
+          const accao = btn.dataset.accao;
+          if (accao === "dividir") await dividir(txId, garantir, virtual);
+          else if (accao === "apagar") await apagar(giftId);
+          else if (accao === "validar") await validar(giftId, virtual, garantir, row);
+          else if (accao === "tirar-imagem") await tirarImagem(giftId);
         } finally {
           btn.disabled = false;
         }
       };
     });
   });
+}
+
+async function validar(giftId, virtual, garantir, row) {
+  try {
+    const actual = row.classList.contains("validated");
+    if (virtual) {
+      await garantir({ is_validated: !actual });
+    } else {
+      const act = await db.updateGift(giftId, { is_validated: !actual });
+      prendas = prendas.map(p => (p.id === giftId ? act : p));
+    }
+    await renderPrendasPage();
+  } catch (err) {
+    console.error("Erro ao validar a prenda:", err);
+    toast("Não foi possível gravar.", "err");
+  }
+}
+
+async function tirarImagem(giftId) {
+  try {
+    await db.deleteGiftImage(giftId);
+    imagens.delete(giftId);
+    await renderPrendasPage();
+  } catch (err) {
+    console.error("Erro ao remover a imagem:", err);
+    toast("Não foi possível remover a imagem.", "err");
+  }
 }
 
 /**
@@ -346,14 +496,11 @@ function ligarEventos(movimentos, porMovimento) {
  * se quer: dividir 90 € em duas dá 90 e 0, e escreve-se por cima o
  * primeiro valor.
  */
-async function dividir(txId, giftId, virtual, valoresActuais) {
+async function dividir(txId, garantir, virtual) {
   try {
     // Uma linha virtual tem de passar a existir antes de se lhe
     // juntar uma segunda — senão a divisão perdia-a.
-    if (virtual) {
-      const nova = await db.insertGift({ transaction_id: txId, ...valoresActuais });
-      prendas.push(nova);
-    }
+    if (virtual) await garantir();
 
     const t = state.transactions.find(x => x.id === txId);
     const jaAtribuido = prendas
@@ -379,6 +526,9 @@ async function apagar(giftId) {
   try {
     await db.deleteGift(giftId);
     prendas = prendas.filter(p => p.id !== giftId);
+    // A imagem vai atrás por cascade na base de dados; aqui é só
+    // manter o mapa local a par.
+    imagens.delete(giftId);
     await renderPrendasPage();
   } catch (err) {
     console.error("Erro ao apagar a prenda:", err);
