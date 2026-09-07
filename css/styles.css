@@ -778,6 +778,14 @@ body {
 /* Um registo manual nao tem movimento por tras: a coluna da data e
    editavel e o traco de grupo separa-o na mesma dos movimentos. */
 .prendas-table tr.manual .prenda-data { min-width: 130px; }
+
+/* Trocar dadas/recebidas. Só nos manuais — um movimento e' sempre
+   uma prenda dada, e a base de dados recusa o contrario. */
+.btn-dir {
+  border: none; border-radius: 6px; padding: 4px 10px; font-size: 13px;
+  cursor: pointer; font-weight: 700;
+  background: var(--tint-amber-bg); color: var(--amber);
+}
 .prendas-table td { vertical-align: middle; }
 .prendas-table input.inline,
 .prendas-table select.inline { width: 100%; }

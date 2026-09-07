@@ -240,7 +240,9 @@ function seccao({ id, titulo, subtitulo, vazio, blocos, eventos, categorias }) {
       <span class="prendas-head-dir">
         <span class="muted">${esc(subtitulo)}</span>
         <button class="btn btn-outline btn-mini" data-accao="novo-manual"
-          data-dir="${id === "recebidas" ? "received" : "given"}">+ Registo manual</button>
+          data-dir="${id === "recebidas" ? "received" : "given"}">${
+            id === "recebidas" ? "+ Prenda recebida" : "+ Prenda dada"
+          }</button>
       </span>
     </div>`;
 
@@ -313,6 +315,10 @@ function linhaHTML(p, { primeira, mov, resta, eventos, categorias }) {
             title="${p.is_validated ? "Marcar como não tratada" : "Marcar como tratada"}">✓</button>
           ${mov ? `<button class="btn-split" data-accao="dividir"
                      title="Dividir em mais uma prenda">+</button>` : ""}
+          ${mov ? "" : `<button class="btn-dir" data-accao="trocar-direccao"
+                     title="${p.direction === "received"
+                       ? "Passar para prendas dadas"
+                       : "Passar para prendas recebidas"}">⇄</button>`}
           ${p.virtual ? "" :
             `<button class="btn-del" data-accao="apagar" title="Apagar prenda">✕</button>`}
         </div>
@@ -528,6 +534,7 @@ function ligarEventos(categorias) {
           else if (accao === "apagar") await apagar(giftId);
           else if (accao === "validar") await validar(giftId, virtual, garantir, row);
           else if (accao === "tirar-imagem") await tirarImagem(giftId);
+          else if (accao === "trocar-direccao") await trocarDireccao(giftId);
         } finally {
           btn.disabled = false;
         }
@@ -548,6 +555,32 @@ async function validar(giftId, virtual, garantir, row) {
   } catch (err) {
     console.error("Erro ao validar a prenda:", err);
     toast("Não foi possível gravar.", "err");
+  }
+}
+
+/**
+ * Passa um registo manual de dadas para recebidas, ou o contrário.
+ *
+ * Só existe nos manuais: um movimento é dinheiro que saiu e a base de
+ * dados recusa-o como recebida (fin_gifts_mov_dada_chk). Existe
+ * porque enganar-se na secção ao criar é fácil, e obrigar a apagar e
+ * refazer perderia a imagem e o resto do que já estivesse preenchido.
+ */
+async function trocarDireccao(giftId) {
+  const p = prendas.find(x => x.id === giftId);
+  if (!p) return;
+  const nova = p.direction === "received" ? "given" : "received";
+
+  try {
+    const act = await db.updateGift(giftId, { direction: nova });
+    prendas = prendas.map(x => (x.id === giftId ? act : x));
+    toast(nova === "received"
+      ? "Passou para prendas recebidas."
+      : "Passou para prendas dadas.", "ok");
+    await renderPrendasPage();
+  } catch (err) {
+    console.error("Erro ao trocar a direcção:", err);
+    toast("Não foi possível trocar a direcção.", "err");
   }
 }
 
