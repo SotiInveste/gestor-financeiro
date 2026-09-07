@@ -764,7 +764,20 @@ body {
    Uma linha por prenda; a data e o movimento aparecem só na primeira
    linha de cada movimento, para se ver de relance onde um acaba e o
    outro começa. */
-.prendas-table { min-width: 780px; }
+.prendas-table { min-width: 880px; }
+
+/* O .table-card nao tem padding, para a tabela encostar as margens.
+   O cabecalho da seccao precisa dele de volta. */
+.prendas-card-head { padding: 16px 16px 0; }
+.prendas-card + .card, .resumo-grupo + .card { margin-top: 16px; }
+
+.prendas-head { margin-bottom: 12px; }
+.prendas-head-dir { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.btn-mini { padding: 4px 10px; font-size: 12px; }
+
+/* Um registo manual nao tem movimento por tras: a coluna da data e
+   editavel e o traco de grupo separa-o na mesma dos movimentos. */
+.prendas-table tr.manual .prenda-data { min-width: 130px; }
 .prendas-table td { vertical-align: middle; }
 .prendas-table input.inline,
 .prendas-table select.inline { width: 100%; }
