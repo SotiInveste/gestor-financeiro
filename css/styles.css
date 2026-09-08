@@ -834,9 +834,11 @@ body {
 /* ═══ Visto "Pago" no total do resumo ═══
    Ao lado do rótulo do total, e a linha inteira fica verde quando
    marcada — mesma leitura das linhas validadas dos movimentos. */
+.foot-pago { white-space: nowrap; width: 1%; }
+
 .pago-toggle {
   display: inline-flex; align-items: center; gap: 6px;
-  margin-left: 14px; cursor: pointer;
+  cursor: pointer;
   font-size: 11px; font-weight: 600; letter-spacing: .5px;
   text-transform: uppercase; color: var(--text-soft);
 }

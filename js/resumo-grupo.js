@@ -107,6 +107,9 @@ export function renderResumoGrupo() {
   // mensais que estivessem por marcar.
   const mensal = state.month !== ANUAL;
   const pago = mensal && pagos?.has(chavePeriodo());
+  // O visto vive numa coluna própria, à direita, e não dentro da
+  // célula do valor: metido lá, empurrava o total para a esquerda e
+  // ele deixava de ficar alinhado com os valores das linhas de cima.
   const vistoPago = mensal ? `
     <label class="pago-toggle" title="Marcar este mês como pago">
       <input type="checkbox" id="resumo-pago"${pago ? " checked" : ""}${
@@ -124,6 +127,7 @@ export function renderResumoGrupo() {
             <th>Categoria</th>
             <th>Conta</th>
             <th class="right">Valor</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -134,15 +138,16 @@ export function renderResumoGrupo() {
               <td>${esc(nomes.get(t.category_id))}</td>
               <td class="resumo-conta">${esc(accountName(t.bank_account_id))}</td>
               <td class="cell-amount ${Number(t.amount) < 0 ? "red" : "green"}">${fmt(t.amount)}</td>
+              <td></td>
             </tr>`).join("")}
         </tbody>
         <tfoot>
           <tr class="${pago ? "pago" : ""}">
             <td colspan="4" class="foot-label">
               Total<span class="muted"> · ${n} movimento${n === 1 ? "" : "s"}</span>
-              ${vistoPago}
             </td>
             <td class="foot-value ${total < 0 ? "red" : "green"}">${fmt(total)}</td>
+            <td class="foot-pago">${vistoPago}</td>
           </tr>
         </tfoot>
       </table>
