@@ -429,6 +429,41 @@ export async function deleteGiftImage(giftId) {
   if (error) throw error;
 }
 
+// ─── Períodos pagos, por grupo (migração 013) ───
+//
+// O mês é 1..12 nesta tabela, não o 0..11 do JavaScript. A conversão
+// é feita no resumo-grupo.js, num único sítio.
+
+export async function fetchGroupPaid(groupCode) {
+  const { data, error } = await sb
+    .from("fin_group_paid")
+    .select("year, month")
+    .eq("group_code", groupCode);
+  if (error) throw error;
+  return data || [];
+}
+
+/** A presença da linha é que significa "pago" — ver a migração 013. */
+export async function setGroupPaid(groupCode, year, month) {
+  const { error } = await sb
+    .from("fin_group_paid")
+    .upsert(
+      { user_id: currentUserId, group_code: groupCode, year, month },
+      { onConflict: "user_id,group_code,year,month", ignoreDuplicates: true },
+    );
+  if (error) throw error;
+}
+
+export async function unsetGroupPaid(groupCode, year, month) {
+  const { error } = await sb
+    .from("fin_group_paid")
+    .delete()
+    .eq("group_code", groupCode)
+    .eq("year", year)
+    .eq("month", month);
+  if (error) throw error;
+}
+
 // ─── Contas bancárias ligadas (open banking) ───
 
 /** Cria uma conta manual — sem open banking por trás. */

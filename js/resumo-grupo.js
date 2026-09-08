@@ -10,7 +10,9 @@
 // nunca é reutilizado (ver a migração 002).
 // ═══════════════════════════════════════════════════════════
 
+import * as db from "./db.js";
 import { state, noPeriodo, ANUAL, accountName } from "./state.js";
+import { toast } from "./ui.js";
 import { fmt, esc, shortDate, MONTHS } from "./utils.js";
 
 /**
@@ -20,6 +22,33 @@ import { fmt, esc, shortDate, MONTHS } from "./utils.js";
  * os criados na aplicação começam em 26. O 27 é o «Despesas Wheelt».
  */
 const GRUPO_CODE = 27;
+
+// ─── Visto "Pago" ───
+//
+// Estado por período, carregado à primeira pintura e mantido a par
+// localmente a seguir. Null enquanto não chegou: o visto aparece
+// desactivado em vez de aparecer em branco e mentir.
+let pagos = null;
+let aCarregar = null;
+
+/** Chave do período no conjunto local. O mês é 1..12, como na tabela. */
+const chavePeriodo = () => `${state.year}-${state.month + 1}`;
+
+function garantirPagos() {
+  if (pagos || aCarregar) return;
+  aCarregar = db.fetchGroupPaid(GRUPO_CODE)
+    .then(linhas => {
+      pagos = new Set(linhas.map(l => `${l.year}-${l.month}`));
+      renderResumoGrupo();
+    })
+    .catch(err => {
+      // O quadro é útil mesmo sem o visto — provavelmente falta
+      // correr a migração 013. Falhar tudo por causa disto seria pior.
+      console.error("Erro ao carregar o estado de pagamento:", err);
+      pagos = new Set();
+    })
+    .finally(() => { aCarregar = null; });
+}
 
 /** Rótulo do período em curso, para o subtítulo do cartão. */
 function rotuloPeriodo() {
@@ -48,6 +77,7 @@ export function renderResumoGrupo() {
   }
 
   card.classList.remove("hidden");
+  garantirPagos();
 
   const nomes = new Map(
     state.categories
@@ -72,6 +102,18 @@ export function renderResumoGrupo() {
   const n = movimentos.length;
   const titulo = `${grupo.emoji || ""} ${grupo.name}`.trim();
 
+  // No modo anual não há visto: o quadro mostra o total do ano e um
+  // único visto para doze meses entraria em contradição com os vistos
+  // mensais que estivessem por marcar.
+  const mensal = state.month !== ANUAL;
+  const pago = mensal && pagos?.has(chavePeriodo());
+  const vistoPago = mensal ? `
+    <label class="pago-toggle" title="Marcar este mês como pago">
+      <input type="checkbox" id="resumo-pago"${pago ? " checked" : ""}${
+        pagos ? "" : " disabled"}>
+      Pago
+    </label>` : "";
+
   const corpo = n ? `
     <div class="table-scroll">
       <table class="table resumo-table">
@@ -95,9 +137,10 @@ export function renderResumoGrupo() {
             </tr>`).join("")}
         </tbody>
         <tfoot>
-          <tr>
+          <tr class="${pago ? "pago" : ""}">
             <td colspan="4" class="foot-label">
               Total<span class="muted"> · ${n} movimento${n === 1 ? "" : "s"}</span>
+              ${vistoPago}
             </td>
             <td class="foot-value ${total < 0 ? "red" : "green"}">${fmt(total)}</td>
           </tr>
@@ -111,4 +154,40 @@ export function renderResumoGrupo() {
       <span class="muted">todas as contas · ${esc(rotuloPeriodo())}</span>
     </div>
     ${corpo}`;
+
+  const chk = card.querySelector("#resumo-pago");
+  if (chk) chk.onchange = () => alternarPago(chk);
+}
+
+/**
+ * Marca ou desmarca o período como pago.
+ *
+ * Optimista: o visto responde logo e só volta atrás se a gravação
+ * falhar. Sem isso, a caixa ficava a piscar entre o clique e a
+ * resposta do servidor.
+ */
+async function alternarPago(chk) {
+  const marcar = chk.checked;
+  const ano = state.year;
+  const mes = state.month + 1;
+  const chave = `${ano}-${mes}`;
+
+  chk.disabled = true;
+  try {
+    if (marcar) {
+      await db.setGroupPaid(GRUPO_CODE, ano, mes);
+      pagos.add(chave);
+    } else {
+      await db.unsetGroupPaid(GRUPO_CODE, ano, mes);
+      pagos.delete(chave);
+    }
+    renderResumoGrupo();
+  } catch (err) {
+    console.error("Erro ao gravar o estado de pagamento:", err);
+    toast(/relation|does not exist|schema cache/i.test(err?.message || "")
+      ? "Falta correr a migração 013_grupo_pago.sql no Supabase."
+      : "Não foi possível gravar.", "err");
+    chk.checked = !marcar;
+    chk.disabled = false;
+  }
 }
