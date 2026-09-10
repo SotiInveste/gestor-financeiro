@@ -21,9 +21,18 @@ export function currentTheme() {
   return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
 }
 
+/**
+ * Cor da barra de estado do Android, por tema. É o --surface de cada
+ * um, que é a cor do cabeçalho — a barra continua-o sem costura.
+ */
+const COR_BARRA = { light: "#ffffff", dark: "#1c1e24" };
+
 /** Aplica o tema e avisa quem precisa de redesenhar (gráficos). */
 export function applyTheme(theme, { notify = true } = {}) {
   document.documentElement.dataset.theme = theme;
+
+  const barra = document.querySelector('meta[name="theme-color"]');
+  if (barra) barra.setAttribute("content", COR_BARRA[theme] || COR_BARRA.light);
 
   const btn = document.getElementById("btn-theme");
   if (btn) {

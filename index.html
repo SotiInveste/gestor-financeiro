@@ -6,6 +6,14 @@
   <title>GestorFin — Gestão de Despesas</title>
   <link rel="stylesheet" href="css/styles.css?v=44">
 
+  <!-- PWA: instalável no Android. Caminhos relativos de propósito —
+       a app vive em /gestor-financeiro/ e não na raiz do domínio. -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <!-- Cor da barra de estado. O valor certo é posto pelo script de
+       tema logo abaixo, e mantido a par pelo theme.js. -->
+  <meta name="theme-color" content="#1c1e24">
+
   <!-- Aplica o tema antes de pintar, para não haver flash branco -->
   <script>
     (function () {
@@ -15,6 +23,11 @@
         ? saved === "dark"
         : window.matchMedia("(prefers-color-scheme: dark)").matches;
       document.documentElement.dataset.theme = dark ? "dark" : "light";
+      // A barra de estado segue o tema escolhido, e não só o do
+      // sistema: quem força o tema claro num telemóvel em modo escuro
+      // ficava com uma barra escura por cima de uma app clara.
+      var cor = document.querySelector('meta[name="theme-color"]');
+      if (cor) cor.setAttribute("content", dark ? "#1c1e24" : "#ffffff");
     })();
   </script>
 
@@ -292,6 +305,7 @@
   <div id="toast-container" class="toast-container"></div>
 
   <script type="module" src="js/theme.js"></script>
+  <script type="module" src="js/pwa.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

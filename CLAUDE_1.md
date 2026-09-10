@@ -21,6 +21,9 @@ Interface em português europeu.
 
 ```
 index.html              # entrada principal
+manifest.webmanifest    # PWA — torna a app instalável no Android
+sw.js                   # service worker SEM cache (ver secção PWA)
+icons/                  # ícones da PWA (192, 512 e maskable 512)
 diagnostico.html        # página isolada de testes (não tocar ao mexer na app)
 css/styles.css          # tokens de tema + estilos
 js/
@@ -41,6 +44,7 @@ js/
   categorias-page.js    # página de gestão de categorias
   resumo-grupo.js       # quadro de resumo de um grupo, na página de movimentos
   prendas.js            # página Prendas
+  pwa.js                # regista o service worker
   app.js                # arranque e navegação
 supabase/
   migrations/           # SQL aditivo, corrido à mão no SQL Editor
@@ -126,6 +130,37 @@ GET /repos/SotiInveste/gestor-financeiro/pages/builds
 ```
 
 Nunca remover o `.nojekyll`.
+
+## PWA (Android)
+
+Instalável desde 10/09/2026. Só para Android — é o único telemóvel onde a
+app vai ser usada.
+
+**O `sw.js` não interceta pedidos, e isso é deliberado.** Não tem handler
+de `fetch`: o browser vai sempre à rede pelo HTML, JS e CSS. Um service
+worker com cache servia a versão guardada mesmo depois de uma publicação
+nova — uma segunda camada de cache, mais teimosa que a do GitHub Pages que
+já prendeu versões antigas neste projeto. E offline não serve para nada:
+dados financeiros desactualizados não se usam, e há sempre rede.
+
+**Não acrescentar cache ao service worker** sem reabrir esta decisão. Ele
+existe para a app ser instalável e, na Fase 3, para receber notificações
+push (consentimento do banco a expirar, lembrete de fim de mês).
+
+- Caminhos **relativos** no manifesto (`start_url` e `scope` = `./`): a app
+  vive em `/gestor-financeiro/`, não na raiz. Com `/` o ícone abria uma
+  página em branco.
+- `register("sw.js", { updateViaCache: "none" })` — o próprio `sw.js` é
+  sempre pedido à rede, para uma versão nova entrar sem esperar pela cache.
+- A cor da barra de estado (`theme-color`) segue o **tema escolhido**, não
+  só o do sistema: é posta pelo script do `<head>` e actualizada no
+  `applyTheme()` do `theme.js`.
+- Ícone: monograma «GF» a imitar o logótipo, F no azul do tema escuro. O
+  maskable tem as letras dentro do círculo interior de 80%, que é o único
+  garantido de sobreviver à máscara do launcher.
+
+**Por fazer:** Fase 2 (Movimentos em cartões no telemóvel — as tabelas
+precisam de 820-880 px) e Fase 3 (notificações).
 
 ## Unicidade: a autoridade é a base de dados
 
