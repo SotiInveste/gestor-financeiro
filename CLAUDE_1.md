@@ -271,6 +271,27 @@ Quadro por baixo dos totais, na página de movimentos (`js/resumo-grupo.js`).
 - Se o código não existir, esconde-se e escreve na consola a lista de
   grupos com os respectivos códigos.
 
+### Visto «Pago» (migração 013)
+
+Caixa na linha de total que marca o **mês inteiro** do grupo como pago. É
+por período e não por movimento.
+
+- Vive em `fin_group_paid`, uma linha por `(group_code, year, month)`. **A
+  presença da linha é que significa pago** — desmarcar apaga-a, em vez de
+  gravar um `false`. Não há estado intermédio e não ficam linhas mortas.
+- **O mês é guardado 1..12, não o 0..11 do JavaScript**, para a tabela se
+  ler em SQL sem armadilhas. A conversão está num único sítio
+  (`chavePeriodo()` e `alternarPago()` no `resumo-grupo.js`) — mexer num
+  sem o outro desalinha Janeiro com Fevereiro.
+- **Não aparece no modo Anual.** Um único visto para doze meses entraria em
+  contradição com os vistos mensais por marcar.
+- Tem uma **coluna própria** à direita da do valor. Metido dentro da célula
+  do valor, empurrava o total para a esquerda e desalinhava-o das linhas
+  de cima.
+- Enquanto o estado não chega do servidor a caixa aparece **desactivada**,
+  e não em branco — em branco estaria a afirmar "por pagar" sem saber.
+- Se a migração faltar, o quadro funciona na mesma, só sem o visto.
+
 ## Período: mês ou ano
 
 `state.month` vale 0..11 para os meses e depois dois sentinelas:
@@ -287,10 +308,42 @@ dos dois — chega-se lá pelo seletor.
 ## Prendas
 
 Página própria (`js/prendas.js`), aberta pelo valor **Prendas** no seletor de
-período. Migrações **010** (tabelas) e **011** (validação e imagem).
+período. Migrações **010** (tabelas), **011** (validação e imagem) e **012**
+(direcção e registos manuais).
 
 Lê os movimentos do **grupo 29**, do ano inteiro e de todas as contas —
 identificado pelo `code`, como o resumo por grupo, e pela mesma razão.
+
+### Dois eixos: origem e direcção
+
+- **Origem** — a prenda vem de um movimento, ou é um registo manual
+  (`transaction_id` nulo, com `gift_date` e `event_category_id` próprios).
+- **Direcção** — `given` ou `received`.
+
+**Um movimento é sempre uma prenda dada**: representa dinheiro que saiu. Só
+os manuais escolhem a direcção — e é para isso que existem, já que uma
+prenda recebida não tem movimento por trás. Três regras na base de dados
+seguram isto: `fin_gifts_direction_chk`, `fin_gifts_origem_chk` (movimento
+**ou** data própria) e `fin_gifts_mov_dada_chk` (um movimento nunca é
+recebida).
+
+**Quem deu e quem recebeu saem da mesma lista de pessoas** (`giver_id` e
+`recipient_id`, ambos para `fin_gift_recipients`). A mesma pessoa dá e
+recebe conforme a ocasião; duas listas partiam-lhe os totais ao meio.
+**Dívida de nomenclatura:** a tabela chama-se `gift_recipients` mas já
+guarda também quem dá — mesmo caso do `fin_bank_accounts`.
+
+A página tem **duas secções**, cada uma com o seu resumo: *Prendas dadas* →
+*Por quem recebeu*, e *Prendas recebidas* → *Por quem deu*. **As recebidas
+não entram no resumo de gastos** — não é dinheiro nosso.
+
+**Lição de 07/09/2026 — os botões de criação têm de dizer a direcção.**
+Eram dois «+ Registo manual» iguais, e a direcção só aparecia depois de
+abrir a janela: criaram-se prendas recebidas como dadas sem ninguém dar por
+isso. Passaram a «+ Prenda dada» e «+ Prenda recebida». Há também um botão
+⇄ nas linhas manuais para trocar a direcção sem apagar e refazer.
+
+### Comportamento das linhas
 
 **Um movimento pode dar várias prendas.** Uma compra de 90 € pode ser três
 prendas de 30 € para três pessoas, por isso o preço vive na prenda e a
@@ -305,12 +358,16 @@ ainda não foi repartido.
   do banco diz onde se comprou, a nota é onde está escrito o que a prenda é.
   Sem nota, o título fica vazio de propósito — vê-se o que falta preencher.
   Depois de gravada, o título é do utilizador e deixa de seguir a nota.
-- **O «evento»** é o nome da categoria do movimento. Derivado, não editável.
-- **Resumo por recetor** com duas linhas cinzentas que são coisas
-  diferentes: «Sem recetor» (prendas sem destinatário) e «Por atribuir»
-  (dinheiro do movimento que ainda não virou prenda). Com as duas, o total
-  bate certo com o dos movimentos do grupo no ano; sem a segunda dava menos
-  e parecia um erro.
+- **O «evento»** é o nome de uma categoria do grupo 29. Nas linhas de
+  movimento é a categoria do movimento e não se edita aqui; nos manuais
+  escolhe-se de um seletor com as mesmas categorias, para as duas origens
+  serem comparáveis.
+- **Resumo das dadas** com duas linhas cinzentas que são coisas
+  diferentes: «Sem pessoa indicada» (prendas sem destinatário) e «Por
+  atribuir» (dinheiro do movimento que ainda não virou prenda). Com as duas,
+  o total bate certo com os movimentos do grupo no ano mais os manuais;
+  sem a segunda dava menos e parecia um erro. O resumo das recebidas não
+  tem «Por atribuir» — não há movimento para reconciliar.
 
 ### Imagens: miniatura em base64, sem Supabase Storage
 
