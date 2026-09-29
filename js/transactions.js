@@ -233,7 +233,12 @@ function rowHTML(t) {
     </td>
     <td>
       <span class="cat-badge${pending}" data-action="edit-category" title="Clica para editar">
-        ${esc(categoryName(t.category_id))}
+        ${t.category_id
+          // Sem categoria, o categoryName devolve "—". Numa tabela larga
+          // passa; no telemóvel é o alvo mais importante do ecrã a não
+          // dizer nada. Um convite à acção vale mais do que um travessão.
+          ? esc(categoryName(t.category_id))
+          : "Categorizar"}
       </span>
     </td>
     <td class="cell-amount ${amountColor}">${fmt(t.amount)}</td>

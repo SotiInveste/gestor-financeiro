@@ -847,3 +847,143 @@ body {
 
 .resumo-table tfoot tr.pago td { background: var(--tint-green-bg); }
 .resumo-table tfoot tr.pago .pago-toggle { color: var(--green); }
+
+/* ═══════════════════════════════════════════════════════════
+   Movimentos em cartões no telemóvel
+   ═══════════════════════════════════════════════════════════
+   A tabela precisa de 820 px e o telemóvel tem 360 úteis: eram
+   460 px de deslize lateral, com o valor e a categoria sempre
+   fora do ecrã. Aqui a mesma linha passa a parecer um cartão.
+
+   Só CSS, de propósito. A edição em linha funciona por delegação
+   de eventos e procura o <tr> da célula clicada; trocar a
+   marcação por <div> obrigaria a reescrever tudo isso. As linhas
+   continuam linhas, só mudam de aspecto.
+
+   Tudo restrito ao #table-wrap: a classe .table também veste o
+   resumo por grupo e as prendas, que têm outras colunas e ficariam
+   baralhados com esta grelha.
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+  /* O cartão que envolvia a tabela sai da frente — cada movimento
+     passa a ser o seu próprio cartão. */
+  #table-wrap.table-card { background: none; border: none; overflow: visible; }
+  #table-wrap .table-scroll { overflow-x: visible; }
+  #table-wrap .table { min-width: 0; display: block; }
+  #table-wrap .table thead { display: none; }
+  #table-wrap .table tbody,
+  #table-wrap .table tfoot { display: block; }
+
+  /* ─── O cartão ─── */
+
+  #table-wrap .table tbody tr {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+      "dmov dval"
+      "desc desc"
+      "cat  valor"
+      "nota accoes";
+    gap: 6px 10px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  #table-wrap .table tbody td {
+    display: block;
+    border: none;
+    padding: 0;
+    background: none;
+  }
+  #table-wrap .table tbody tr:hover td { background: none; }
+
+  /* Sem cabeçalho de tabela, as duas datas precisam de se
+     identificar — senão são dois números iguais lado a lado. */
+  #table-wrap .cell-date { grid-area: dmov; }
+  #table-wrap .cell-valuedate { grid-area: dval; }
+  #table-wrap .cell-date::before,
+  #table-wrap .cell-valuedate::before {
+    color: var(--faint);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-right: 4px;
+  }
+  #table-wrap .cell-date::before { content: "mov"; }
+  #table-wrap .cell-valuedate::before { content: "valor"; }
+
+  #table-wrap .cell-desc {
+    grid-area: desc;
+    max-width: none;
+  }
+  #table-wrap .desc-text { flex-wrap: wrap; font-size: 14px; }
+
+  /* A categoria é a coluna sem classe própria — é a quinta.
+     Deliberadamente por posição e não por :has(.cat-badge): ao
+     editar, o crachá é substituído por um <select> e a célula
+     saltava para fora do seu lugar na grelha. */
+  #table-wrap .table tbody td:nth-child(5) { grid-area: cat; }
+  #table-wrap .cat-badge { font-size: 13px; padding: 5px 10px; }
+
+  #table-wrap .cell-amount {
+    grid-area: valor;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  #table-wrap .cell-note { grid-area: nota; max-width: none; }
+  #table-wrap .cell-actions { grid-area: accoes; }
+
+  /* Alvos de toque: os botões de 4 px de altura eram difíceis de
+     acertar com o dedo. */
+  #table-wrap .row-actions { justify-content: flex-end; gap: 8px; }
+  #table-wrap .btn-check,
+  #table-wrap .btn-del,
+  #table-wrap .btn-restore {
+    min-width: 44px;
+    padding: 9px 14px;
+    font-size: 15px;
+  }
+
+  /* A cor das linhas validadas e arquivadas tem de continuar a
+     ganhar ao fundo do cartão, que é definido mais acima. */
+  #table-wrap .table tbody tr.validated { background: var(--tint-green-bg); }
+  #table-wrap .table tbody tr.validated:hover td { background: none; }
+
+  /* ─── Totais ─── */
+  /* Eram quatro linhas altas a mostrar só rótulos, com os valores
+     fora do ecrã. Passam a quatro linhas de uma só altura, com o
+     número à vista. */
+
+  #table-wrap .table tfoot tr {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 6px;
+  }
+  #table-wrap .table tfoot td {
+    display: block;
+    border: none;
+    padding: 0;
+    background: none;
+  }
+  /* As linhas do meio só trazem o valor; as células vazias não
+     precisam de ocupar espaço. */
+  #table-wrap .table tfoot td:empty { display: none; }
+  #table-wrap .table tfoot .foot-label { margin-right: auto; }
+  #table-wrap .table tfoot .foot-value .muted {
+    display: inline;
+    margin-left: 6px;
+    font-size: 11px;
+  }
+  #table-wrap .table tfoot .foot-balance td { border-top: none; }
+}
