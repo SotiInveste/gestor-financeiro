@@ -1072,3 +1072,14 @@ body {
   .sheet-overlay { align-items: center; padding: 20px; }
   .sheet { border-radius: 14px; max-height: 70vh; }
 }
+
+/* Marca de período fechado, ao lado da contagem de movimentos.
+   Verde, como as linhas já tratadas — é a mesma ideia levada ao mês
+   inteiro. */
+.pill-fechado {
+  font-size: 11px; font-weight: 700; letter-spacing: .4px;
+  text-transform: uppercase; white-space: nowrap;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--tint-green-bg); color: var(--green);
+  border: 1px solid var(--tint-green-strong);
+}

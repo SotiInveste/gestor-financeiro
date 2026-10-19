@@ -281,10 +281,23 @@ function renderAll() {
 
   const prendas = state.month === PRENDAS;
   const anoInteiro = state.month === ANUAL || prendas;
+  const pending = list.filter(t => !t.is_validated).length;
 
   document.getElementById("period-count").textContent =
     `${list.length} movimento${list.length === 1 ? "" : "s"}` +
     (anoInteiro ? " no ano" : "");
+
+  // Fechado: há movimentos e nenhum por validar. As duas condições
+  // contam — num mês vazio não há nada por validar, mas também não
+  // há nada fechado, e a marca seria uma mentira animadora.
+  //
+  // Segue o filtro de conta, tal como a contagem ao lado: o que está
+  // fechado é o mês daquela conta, não o mês em geral.
+  const fechado = document.getElementById("periodo-fechado");
+  if (fechado) {
+    fechado.textContent = anoInteiro ? "Ano fechado" : "Mês fechado";
+    fechado.classList.toggle("hidden", !(list.length > 0 && pending === 0));
+  }
 
   // Sem meses para percorrer, as setas não têm função.
   ["prev-month", "next-month"].forEach(id => {
@@ -306,7 +319,6 @@ function renderAll() {
   balanceEl.textContent = `Saldo: ${fmt(totals.balance)}`;
   balanceEl.className = "header-balance " + (totals.balance >= 0 ? "green" : "red");
 
-  const pending = list.filter(t => !t.is_validated).length;
   const badge = document.getElementById("badge-pending");
   badge.textContent = pending;
   badge.classList.toggle("hidden", pending === 0);
