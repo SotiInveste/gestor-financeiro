@@ -23,6 +23,21 @@ let manualType = "expense";
 // vista normal, e o arquivo é uma consulta pontual.
 let verArquivados = false;
 
+// Mostrar apenas o que ainda não foi categorizado a sério. Também
+// não é guardado entre sessões: abrir a app com a lista filtrada e
+// não dar por isso seria pior do que voltar a ligar o filtro.
+let soPorCategorizar = false;
+
+/**
+ * Um movimento está "por categorizar" quando nenhuma regra acertou.
+ *
+ * O is_confirmed é posto a true pelo importador e pela sincronização
+ * quando uma regra bate certo, e pela edição manual da categoria.
+ * É o mesmo sinal que já pinta o crachá a laranja — o filtro mostra
+ * exactamente as linhas que a lista já destacava.
+ */
+const porCategorizar = t => !t.is_confirmed;
+
 // ═══ Arquivo ═══
 
 /**
@@ -56,6 +71,18 @@ export function initArquivadosToggle() {
       }
     }
 
+    renderTransactions();
+  };
+}
+
+/** Liga o interruptor "Só por categorizar". */
+export function initPorCategorizarToggle() {
+  const chk = document.getElementById("chk-por-categorizar");
+  if (!chk) return;
+
+  chk.checked = soPorCategorizar;
+  chk.onchange = () => {
+    soPorCategorizar = chk.checked;
     renderTransactions();
   };
 }
@@ -159,9 +186,15 @@ export function renderTransactions() {
   // saem sempre dos activos, para não mudarem consoante o
   // interruptor esteja ligado ou não.
   const activos = currentMonthTransactions();
-  const list = verArquivados
+  const comArquivados = verArquivados
     ? currentMonthTransactions({ incluirArquivados: true })
     : activos;
+
+  // Os dois filtros sobrepõem-se em vez de se excluírem: "ver
+  // arquivados" e "só por categorizar" são perguntas diferentes e
+  // podem valer as duas ao mesmo tempo.
+  const list = soPorCategorizar ? comArquivados.filter(porCategorizar) : comArquivados;
+  const nPorCategorizar = activos.filter(porCategorizar).length;
 
   const body = document.getElementById("table-body");
   const foot = document.getElementById("table-foot");
@@ -178,7 +211,7 @@ export function renderTransactions() {
   refreshManualCategorySelect();
   refreshManualAccountLabel();
 
-  const nArquivados = list.length - activos.length;
+  const nArquivados = comArquivados.length - activos.length;
   const cont = document.getElementById("arquivados-count");
   if (cont) {
     cont.textContent = nArquivados
@@ -186,9 +219,24 @@ export function renderTransactions() {
       : (verArquivados ? "(nenhum neste período)" : "");
   }
 
+  const cont2 = document.getElementById("por-categorizar-count");
+  if (cont2) {
+    cont2.textContent = nPorCategorizar
+      ? `(${nPorCategorizar})`
+      : (soPorCategorizar ? "(nenhum)" : "");
+  }
+
   const isEmpty = list.length === 0;
   wrap.classList.toggle("hidden", isEmpty);
   empty.classList.toggle("hidden", !isEmpty);
+
+  // Com o filtro ligado, "sem movimentos" seria mentira: há-os, é só
+  // não haver nenhum por tratar. E o texto antigo mandava importar o
+  // extrato "acima", quando a importação está no fim da página desde
+  // que a lista passou para cima.
+  empty.innerHTML = soPorCategorizar
+    ? `<div class="empty-icon">✅</div><p>Nada por categorizar neste período.</p>`
+    : `<div class="empty-icon">📋</div><p>Sem movimentos neste mês. Importa o extrato abaixo.</p>`;
 
   if (isEmpty) {
     body.innerHTML = "";

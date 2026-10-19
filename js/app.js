@@ -14,7 +14,7 @@ import {
 import { renderDashboard } from "./dashboard.js";
 import {
   renderTransactions, initManualForm, validateAll, initTableSorting,
-  initArquivadosToggle,
+  initArquivadosToggle, initPorCategorizarToggle,
 } from "./transactions.js";
 import { exportToExcel } from "./export.js";
 import { parseStatement, readFile } from "./import.js";
@@ -98,6 +98,7 @@ async function startApp(session) {
   initManualForm();
   initTableSorting();
   initArquivadosToggle();
+  initPorCategorizarToggle();
   initContas();
   initCategoriesPage();
   initPrendasPage();

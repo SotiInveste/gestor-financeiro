@@ -987,3 +987,15 @@ body {
   }
   #table-wrap .table tfoot .foot-balance td { border-top: none; }
 }
+
+/* Os dois filtros da lista de movimentos, lado a lado. */
+.cat-toolbar-filtros { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; }
+
+@media (max-width: 640px) {
+  /* A barra do topo deslizava na horizontal e cortava o botão do
+     Excel a meio — parecia avariada, e ninguém adivinha que há mais
+     coisas se arrastar o cabeçalho para o lado. Passa a dobrar. */
+  .nav { flex-wrap: wrap; overflow-x: visible; justify-content: flex-end; }
+
+  .cat-toolbar-filtros { width: 100%; justify-content: space-between; gap: 6px 10px; }
+}
