@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=46">
+  <link rel="stylesheet" href="css/styles.css?v=47">
 
   <!-- PWA: instalável no Android. Caminhos relativos de propósito —
        a app vive em /gestor-financeiro/ e não na raiz do domínio. -->
@@ -294,6 +294,20 @@
       </section>
 
     </main>
+  </div>
+
+  <!-- ─── Seletor de categoria ───
+       Folha com pesquisa e sugestões, em vez do <select> nativo.
+       Sobe de baixo no telemóvel; ao centro no computador. -->
+  <div id="cat-sheet" class="sheet-overlay hidden">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Escolher categoria">
+      <div class="sheet-head">
+        <input type="search" id="cat-sheet-busca" class="select"
+          placeholder="Procurar categoria…" autocomplete="off">
+        <button id="cat-sheet-fechar" class="btn btn-ghost">Fechar</button>
+      </div>
+      <div id="cat-sheet-corpo" class="sheet-corpo"></div>
+    </div>
   </div>
 
   <!-- ─── Modal de confirmação ─── -->

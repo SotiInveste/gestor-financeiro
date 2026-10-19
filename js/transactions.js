@@ -15,6 +15,7 @@ import {
 import * as db from "./db.js";
 import { toast, confirmModal, setLoading } from "./ui.js";
 import { renderResumoGrupo } from "./resumo-grupo.js";
+import { escolherCategoria } from "./seletor-categoria.js";
 
 let manualType = "expense";
 
@@ -378,7 +379,7 @@ function bindRowEvents() {
     switch (target.dataset.action) {
       case "edit-date": editDate(target, t); break;
       case "edit-note": editNote(target, t); break;
-      case "edit-category": editCategory(target, t); break;
+      case "edit-category": await editCategory(target, t); break;
       case "toggle-validated": await toggleValidated(row, target, t); break;
       case "delete": await deleteTransaction(t); break;
       case "restore": await restoreTransaction(t, target); break;
@@ -451,7 +452,47 @@ function editNote(div, t) {
   };
 }
 
-function editCategory(span, t) {
+/**
+ * Abre o seletor de categoria.
+ *
+ * Era um <select> nativo com 59 opções em 15 grupos: no telemóvel
+ * obrigava a percorrer tudo com o polegar e não deixava procurar.
+ * Passa a ser uma folha com pesquisa e sugestões — ver
+ * seletor-categoria.js.
+ *
+ * Se a folha não existir na página, cai no <select> de antes em vez
+ * de deixar de dar para categorizar.
+ */
+async function editCategory(span, t) {
+  const escolhido = await escolherCategoria({
+    actualId: t.category_id,
+    descricao: t.description,
+  });
+
+  if (escolhido === undefined) return editCategorySelect(span, t);
+  // Cancelou, ou escolheu o que já lá estava: nada mudou no ecrã,
+  // por isso também não há nada a repintar.
+  if (!escolhido || escolhido === t.category_id) return;
+
+  await gravarCategoria(t, escolhido);
+}
+
+async function gravarCategoria(t, categoryId) {
+  try {
+    await db.updateTransaction(t.id, { category_id: categoryId, is_confirmed: true });
+    updateLocal(t.id, { category_id: categoryId, is_confirmed: true });
+    renderTransactions();
+    document.dispatchEvent(new CustomEvent("data-changed"));
+    offerRule(t.description, categoryId);
+  } catch (err) {
+    console.error("Erro ao gravar a categoria:", err);
+    toast("Erro ao gravar a categoria.", "err");
+    renderTransactions();
+  }
+}
+
+/** Recurso: o <select> nativo, se a folha não estiver na página. */
+function editCategorySelect(span, t) {
   const select = document.createElement("select");
   select.className = "inline";
   fillCategorySelect(select, t.category_id);
@@ -464,17 +505,7 @@ function editCategory(span, t) {
     done = true;
     const categoryId = select.value;
     if (categoryId === t.category_id) return renderTransactions();
-    try {
-      await db.updateTransaction(t.id, { category_id: categoryId, is_confirmed: true });
-      updateLocal(t.id, { category_id: categoryId, is_confirmed: true });
-      renderTransactions();
-      document.dispatchEvent(new CustomEvent("data-changed"));
-      offerRule(t.description, categoryId);
-    } catch (err) {
-      console.error("Erro ao gravar a categoria:", err);
-      toast("Erro ao gravar a categoria.", "err");
-      renderTransactions();
-    }
+    await gravarCategoria(t, categoryId);
   };
 
   select.onchange = save;

@@ -999,3 +999,76 @@ body {
 
   .cat-toolbar-filtros { width: 100%; justify-content: space-between; gap: 6px 10px; }
 }
+
+/* ═══ Seletor de categoria ═══
+   Folha com pesquisa e sugestões, em vez do <select> nativo. Sobe
+   de baixo no telemóvel, onde o polegar chega; ao centro no
+   computador. Acima do modal (200) e abaixo dos toasts (300), para
+   o aviso de erro continuar a aparecer por cima. */
+
+.sheet-overlay {
+  position: fixed; inset: 0; background: var(--modal-backdrop);
+  display: flex; align-items: flex-end; justify-content: center; z-index: 250;
+}
+
+.sheet {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px 16px 0 0;
+  width: 100%; max-width: 560px;
+  max-height: 85vh; display: flex; flex-direction: column;
+}
+
+.sheet-head {
+  display: flex; gap: 8px; align-items: center;
+  padding: 14px; border-bottom: 1px solid var(--border);
+}
+.sheet-head .select { flex: 1; }
+
+.sheet-corpo { overflow-y: auto; padding: 10px 14px 20px; }
+
+.sheet-rotulo {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); font-weight: 600; margin: 12px 0 6px;
+}
+.sheet-grupo:first-child .sheet-rotulo,
+.sheet-sugestoes .sheet-rotulo { margin-top: 2px; }
+
+/* ─── Sugestões ─── */
+
+.sheet-sugestoes { border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.sheet-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.sheet-chip {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 10px 14px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--tint-blue-border, var(--border-strong));
+  background: var(--tint-blue-bg, var(--surface-soft));
+  color: var(--text); font-family: inherit; font-size: 14px; font-weight: 600;
+}
+.sheet-chip:hover { border-color: var(--blue); }
+.sheet-porque { font-size: 11px; font-weight: 400; color: var(--muted); }
+
+/* ─── Lista ─── */
+
+.sheet-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 12px 10px; border: none; border-radius: 8px;
+  background: none; color: var(--text); cursor: pointer;
+  font-family: inherit; font-size: 15px; text-align: left;
+}
+.sheet-item:hover { background: var(--hover); }
+.sheet-item.actual { color: var(--blue); font-weight: 600; }
+
+.sheet-marca {
+  margin-left: auto; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--blue);
+}
+
+.sheet-vazio { padding: 24px 10px; text-align: center; }
+
+@media (min-width: 641px) {
+  /* Com rato não há polegar a alcançar: ao centro, como os modais. */
+  .sheet-overlay { align-items: center; padding: 20px; }
+  .sheet { border-radius: 14px; max-height: 70vh; }
+}
