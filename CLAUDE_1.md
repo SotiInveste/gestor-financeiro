@@ -44,6 +44,7 @@ js/
   categorias-page.js    # página de gestão de categorias
   resumo-grupo.js       # quadro de resumo de um grupo, na página de movimentos
   prendas.js            # página Prendas
+  seletor-categoria.js  # folha de escolha de categoria, com pesquisa
   pwa.js                # regista o service worker
   app.js                # arranque e navegação
 supabase/
@@ -327,6 +328,49 @@ por período e não por movimento.
   e não em branco — em branco estaria a afirmar "por pagar" sem saber.
 - Se a migração faltar, o quadro funciona na mesma, só sem o visto.
 
+## Categorizar: o filtro e o seletor
+
+### Filtro «Só por categorizar»
+
+Interruptor na lista de movimentos, ao lado do «Ver arquivados».
+
+- O critério é o **`is_confirmed`**, que fica a `false` exactamente quando
+  nenhuma regra acertou (ver `categorize()`). É o mesmo sinal que já pinta o
+  crachá a laranja: **o filtro mostra as linhas que a lista já destacava**,
+  não inventa um critério novo.
+- **Sobrepõe-se ao «Ver arquivados»** em vez de o excluir: são perguntas
+  diferentes e podem valer as duas ao mesmo tempo.
+- **Os totais do rodapé continuam a ser do mês inteiro**, ligado ou
+  desligado. Se encolhessem com a lista, deixavam de servir para conferir.
+- Não é guardado entre sessões: abrir a app com a lista filtrada sem dar por
+  isso seria pior do que voltar a ligá-lo.
+
+### Seletor de categoria (`js/seletor-categoria.js`)
+
+Folha com pesquisa, em vez do `<select>` nativo — com 59 categorias em 15
+grupos, a lista nativa obrigava a percorrer tudo com o polegar.
+
+- **O valor está nas sugestões, não na pesquisa.** Até quatro, com o motivo
+  à vista: `regra` (o que a app faria sozinha), `da última vez` (descrição
+  parecida já categorizada) e `frequente`. Nos casos comuns é um toque.
+  Uma sugestão sem explicação é um palpite; com explicação é um argumento.
+- **As sugestões saem do mesmo `categorize()`** que o importador e a
+  sincronização usam. Se a app sugerisse aqui uma coisa e arrumasse outra
+  sozinha, deixava de haver uma resposta única para "em que categoria é que
+  isto cai".
+- **No telemóvel a pesquisa não recebe foco** — só com `(pointer: fine)`: o teclado
+  subia logo e tapava as sugestões, que são o caminho mais curto.
+- Pesquisa sem acentos; procurar pelo nome do grupo traz as categorias dele.
+- Se a marcação faltar na página, cai no `<select>` de antes em vez de
+  deixar de dar para categorizar.
+
+### Marca «Mês fechado»
+
+Ao lado da contagem de movimentos, a verde, quando o período tem movimentos
+**e** nenhum por validar. As duas condições contam: um mês vazio também não
+tem nada por validar, e a marca seria uma mentira animadora. Segue o filtro
+de conta, tal como a contagem ao lado. No modo anual diz «Ano fechado».
+
 ## Período: mês ou ano
 
 `state.month` vale 0..11 para os meses e depois dois sentinelas:
@@ -404,6 +448,25 @@ ainda não foi repartido.
   sem a segunda dava menos e parecia um erro. O resumo das recebidas não
   tem «Por atribuir» — não há movimento para reconciliar.
 
+### Filtros
+
+Uma barra só — pesquisa no título, evento e pessoa — **partilhada pelas duas
+tabelas**. A mesma pessoa aparece dos dois lados conforme a ocasião, e
+escolhê-la mostra de uma vez o que lhe foi dado e o que ela deu.
+
+- **A pessoa é procurada nos dois papéis**, `giver_id` ou `recipient_id`.
+- Não são caixas no cabeçalho das colunas: a tabela já precisa de 880 px e
+  desliza na horizontal, por isso filtrar a coluna «Para» obrigava a
+  arrastar a tabela só para chegar à caixa.
+- **Os campos vivem no `index.html`, fora do `#prendas-conteudo`** — esse é
+  reescrito a cada pintura, e um campo de texto lá dentro perdia o cursor a
+  cada letra escrita.
+- **Os resumos acompanham o filtro**, e os subtítulos dizem «filtrado» para
+  o total não se confundir com o do ano.
+- **Com filtro activo o «Por atribuir» desaparece**: esse número sai do que
+  falta repartir de cada movimento, e com parte das prendas fora da vista
+  seria uma conta sobre dados escondidos.
+
 ### Imagens: miniatura em base64, sem Supabase Storage
 
 A imagem é reduzida a **320 px de lado maior** e comprimida para JPEG no
@@ -423,6 +486,18 @@ esta decisão inverte-se — 26 KB por linha é o que a torna aceitável.
 A miniatura vive em `fin_gift_images`, com o `gift_id` como chave primária
 (uma imagem por prenda, e substituir é um upsert). Tabela à parte para o
 `fetchGifts()` não arrastar as imagens atrás.
+
+**Vista ampliada.** Clicar na miniatura abre-a em grande, com a troca da
+imagem lá dentro; sem imagem, o clique abre logo o seletor de ficheiro. A
+vista está limitada a **480 px de propósito**: o que está guardado são só os
+320 px da miniatura, e acima disso seria ampliar pixéis. Num telemóvel sai a
+~0,98× do tamanho nativo.
+
+**Se um dia forem precisas imagens grandes**, o caminho é guardar duas
+versões — a miniatura como está para a tabela, e uma de ~1024 px numa coluna
+à parte, lida só quando a vista abre. Aumentar simplesmente a miniatura não
+serve: a página carrega todas as imagens de uma vez, e 50 prendas a 200 KB
+seriam 10 MB por abertura.
 
 ## Deduplicação
 
