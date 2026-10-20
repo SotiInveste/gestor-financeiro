@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=48">
+  <link rel="stylesheet" href="css/styles.css?v=49">
 
   <!-- PWA: instalável no Android. Caminhos relativos de propósito —
        a app vive em /gestor-financeiro/ e não na raiz do domínio. -->
@@ -277,6 +277,18 @@
             <button id="btn-nova-pessoa" class="btn btn-outline">+ Nova pessoa</button>
           </span>
         </div>
+        <!-- Filtros: uma barra só para as duas tabelas. Fica FORA do
+             #prendas-conteudo de propósito — esse é reescrito a cada
+             pintura, e o campo de texto lá dentro perdia o cursor a
+             cada letra escrita. -->
+        <div class="actions-bar prendas-filtros">
+          <input type="search" id="prendas-busca" class="select"
+            placeholder="Procurar no título…" autocomplete="off">
+          <select id="prendas-evento" class="select"></select>
+          <select id="prendas-pessoa" class="select"></select>
+          <button id="prendas-limpar" class="btn btn-ghost hidden">Limpar</button>
+        </div>
+
         <div id="prendas-conteudo"></div>
       </section>
 

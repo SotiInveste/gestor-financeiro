@@ -1083,3 +1083,14 @@ body {
   background: var(--tint-green-bg); color: var(--green);
   border: 1px solid var(--tint-green-strong);
 }
+
+/* ═══ Filtros das prendas ═══
+   Uma barra só para as duas tabelas. O .actions-bar alinha à direita;
+   aqui os campos começam à esquerda e crescem com o espaço. */
+.prendas-filtros { justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+.prendas-filtros #prendas-busca { flex: 1 1 200px; min-width: 160px; }
+/* Os seletores ficam com a largura do conteúdo e dobram sozinhos
+   quando não cabem. No telemóvel dá uma linha para a pesquisa e os
+   dois seletores na seguinte, que é exactamente o que se quer — não
+   vale a pena uma regra própria para o repetir. */
+.prendas-filtros select { flex: 0 1 auto; }

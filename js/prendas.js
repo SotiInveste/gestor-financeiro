@@ -43,6 +43,23 @@ let carregado = false;
 let erroCarregamento = null;
 let aCarregar = null;
 
+// ─── Filtros ───
+//
+// Uma barra só, partilhada pelas duas tabelas: a mesma pessoa aparece
+// dos dois lados conforme a ocasião, e escolhê-la mostra de uma vez o
+// que lhe deste e o que ela te deu.
+//
+// Vivem aqui e os campos vivem no index.html, fora do
+// #prendas-conteudo: este é reescrito a cada pintura, e um campo de
+// texto lá dentro perdia o cursor a cada letra escrita.
+const filtros = { texto: "", evento: "", pessoa: "" };
+
+const haFiltro = () => Boolean(filtros.texto.trim() || filtros.evento || filtros.pessoa);
+
+/** Sem acentos e em minúsculas, para "mae" encontrar "Mãe". */
+const simplificar = s => String(s || "")
+  .normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
 // ═══ Carregamento ═══
 
 async function carregar() {
@@ -71,6 +88,89 @@ export function initPrendasPage() {
 
   const btnGerir = document.getElementById("btn-gerir-pessoas");
   if (btnGerir) btnGerir.onclick = gerirPessoas;
+
+  const busca = document.getElementById("prendas-busca");
+  if (busca) busca.oninput = () => { filtros.texto = busca.value; renderPrendasPage(); };
+
+  const ev = document.getElementById("prendas-evento");
+  if (ev) ev.onchange = () => { filtros.evento = ev.value; renderPrendasPage(); };
+
+  const pe = document.getElementById("prendas-pessoa");
+  if (pe) pe.onchange = () => { filtros.pessoa = pe.value; renderPrendasPage(); };
+
+  const limpar = document.getElementById("prendas-limpar");
+  if (limpar) limpar.onclick = () => {
+    filtros.texto = ""; filtros.evento = ""; filtros.pessoa = "";
+    if (busca) busca.value = "";
+    if (ev) ev.value = "";
+    if (pe) pe.value = "";
+    renderPrendasPage();
+  };
+}
+
+/**
+ * Opções dos seletores de filtro.
+ *
+ * Só são reconstruídas quando as categorias ou as pessoas mudam —
+ * refazê-las a cada pintura fechava o seletor aberto e perdia a
+ * escolha a meio.
+ */
+let assinaturaFiltros = "";
+
+function preencherFiltros(categorias) {
+  const ev = document.getElementById("prendas-evento");
+  const pe = document.getElementById("prendas-pessoa");
+  if (!ev || !pe) return;
+
+  const assinatura = categorias.map(c => c.id + c.name).join("|") +
+    "::" + pessoas.map(p => p.id + p.name + (p.archived_at || "")).join("|");
+  if (assinatura === assinaturaFiltros) return;
+  assinaturaFiltros = assinatura;
+
+  ev.innerHTML = `<option value="">Todos os eventos</option>` +
+    categorias.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+
+  pe.innerHTML = `<option value="">Todas as pessoas</option>` +
+    pessoas.filter(p => !p.archived_at)
+      .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join("");
+
+  // Uma escolha que já não exista cai para "todos", em vez de ficar
+  // a filtrar por algo invisível.
+  ev.value = filtros.evento;
+  pe.value = filtros.pessoa;
+  filtros.evento = ev.value;
+  filtros.pessoa = pe.value;
+}
+
+/**
+ * Uma prenda passa o filtro?
+ *
+ * O evento vem do movimento quando a prenda nasce de um, e da própria
+ * prenda quando é manual — daí precisar do bloco e não só da linha.
+ *
+ * A pessoa é procurada nos dois papéis: quem deu OU quem recebeu.
+ */
+function passaFiltro(p, mov) {
+  const q = simplificar(filtros.texto.trim());
+  if (q && !simplificar(p.title).includes(q)) return false;
+
+  if (filtros.evento) {
+    const evento = mov ? mov.category_id : p.event_category_id;
+    if (evento !== filtros.evento) return false;
+  }
+
+  if (filtros.pessoa &&
+      p.giver_id !== filtros.pessoa && p.recipient_id !== filtros.pessoa) return false;
+
+  return true;
+}
+
+/** Aplica o filtro dentro de cada bloco e deixa cair os que ficam vazios. */
+function filtrarBlocos(blocos) {
+  if (!haFiltro()) return blocos;
+  return blocos
+    .map(b => ({ ...b, items: b.items.filter(p => passaFiltro(p, b.mov)) }))
+    .filter(b => b.items.length);
 }
 
 // ═══ Render ═══
@@ -127,23 +227,37 @@ export async function renderPrendasPage() {
     .filter(p => !p.transaction_id && p.direction === dir && anoDe(p.gift_date))
     .sort((a, b) => String(a.gift_date).localeCompare(String(b.gift_date)));
 
-  const dadas = blocosDadas(movimentos, porMovimento, manuais("given"));
-  const recebidas = manuais("received").map(p => ({ data: p.gift_date, mov: null, items: [p] }));
+  preencherFiltros(categorias);
 
+  const dadas = filtrarBlocos(blocosDadas(movimentos, porMovimento, manuais("given")));
+  const recebidas = filtrarBlocos(
+    manuais("received").map(p => ({ data: p.gift_date, mov: null, items: [p] })));
+
+  const filtrado = haFiltro();
+  const limpar = document.getElementById("prendas-limpar");
+  if (limpar) limpar.classList.toggle("hidden", !filtrado);
+
+  const sufixo = filtrado ? " · filtrado" : "";
+
+  // Com filtro não se mostra o "Por atribuir": esse número sai do que
+  // falta repartir de cada movimento, e com parte das prendas de fora
+  // da vista seria uma conta sobre dados escondidos.
   wrap.innerHTML =
     seccao({
       id: "dadas",
       titulo: "Prendas dadas",
-      subtitulo: `movimentos e registos manuais · ${state.year}`,
-      vazio: "Sem prendas dadas neste ano.",
+      subtitulo: `movimentos e registos manuais · ${state.year}${sufixo}`,
+      vazio: filtrado ? "Nenhuma prenda dada corresponde ao filtro."
+                      : "Sem prendas dadas neste ano.",
       blocos: dadas, eventos, categorias,
     }) +
-    resumoHTML("Por quem recebeu", dadas, "recipient_id", true) +
+    resumoHTML("Por quem recebeu", dadas, "recipient_id", !filtrado) +
     seccao({
       id: "recebidas",
       titulo: "Prendas recebidas",
-      subtitulo: `só registos manuais · ${state.year}`,
-      vazio: "Sem prendas recebidas neste ano.",
+      subtitulo: `só registos manuais · ${state.year}${sufixo}`,
+      vazio: filtrado ? "Nenhuma prenda recebida corresponde ao filtro."
+                      : "Sem prendas recebidas neste ano.",
       blocos: recebidas, eventos, categorias,
     }) +
     (recebidas.length ? resumoHTML("Por quem deu", recebidas, "giver_id", false) : "");
