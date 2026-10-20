@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=49">
+  <link rel="stylesheet" href="css/styles.css?v=50">
 
   <!-- PWA: instalável no Android. Caminhos relativos de propósito —
        a app vive em /gestor-financeiro/ e não na raiz do domínio. -->
@@ -307,6 +307,21 @@
       </section>
 
     </main>
+  </div>
+
+  <!-- ─── Imagem de uma prenda, em grande ─── -->
+  <div id="img-popup" class="img-overlay hidden">
+    <div class="img-caixa" role="dialog" aria-modal="true" aria-label="Imagem da prenda">
+      <img id="img-popup-src" alt="">
+      <div class="img-accoes">
+        <span id="img-popup-titulo" class="muted"></span>
+        <label class="btn btn-ghost">
+          <input type="file" accept="image/*" id="img-popup-ficheiro" hidden>
+          Trocar imagem
+        </label>
+        <button id="img-popup-fechar" class="btn btn-outline">Fechar</button>
+      </div>
+    </div>
   </div>
 
   <!-- ─── Seletor de categoria ───

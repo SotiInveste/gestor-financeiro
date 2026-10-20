@@ -326,17 +326,91 @@ function opcoesEvento(categorias, selecionado) {
 
 function celulaImagem(p) {
   const src = imagens.get(p.id);
+
+  // Sem imagem, o clique abre logo o seletor de ficheiro: não há
+  // nada para ver e uma janela pelo meio era um passo a mais.
+  if (!src) {
+    return `
+      <td class="prenda-img-cel">
+        <label class="prenda-img" title="Escolher uma imagem">
+          <input type="file" accept="image/*" class="prenda-ficheiro" hidden>
+          <span class="prenda-img-vazia">+</span>
+        </label>
+      </td>`;
+  }
+
+  // Com imagem, o clique mostra-a em grande. A troca passa para
+  // dentro dessa janela — a miniatura de 48 px não dá para perceber
+  // o que é a prenda, que é justamente para o que serve a imagem.
   return `
     <td class="prenda-img-cel">
-      <label class="prenda-img" title="${src ? "Trocar a imagem" : "Escolher uma imagem"}">
-        <input type="file" accept="image/*" class="prenda-ficheiro" hidden>
-        ${src
-          ? `<img src="${src}" alt="" class="prenda-thumb">`
-          : `<span class="prenda-img-vazia">+</span>`}
-      </label>
-      ${src ? `<button class="prenda-img-tirar" data-accao="tirar-imagem"
-                 title="Remover a imagem">✕</button>` : ""}
+      <button type="button" class="prenda-img" data-accao="ver-imagem"
+        title="Ver em grande">
+        <img src="${src}" alt="" class="prenda-thumb">
+      </button>
+      <button class="prenda-img-tirar" data-accao="tirar-imagem"
+        title="Remover a imagem">✕</button>
     </td>`;
+}
+
+// ═══ Vista ampliada ═══
+
+// Qual a prenda cuja imagem está aberta, para o botão de trocar
+// saber sobre quem age.
+let imagemAberta = null;
+
+function fecharImagem() {
+  const ov = document.getElementById("img-popup");
+  if (ov) ov.classList.add("hidden");
+  imagemAberta = null;
+  document.removeEventListener("keydown", aoTeclaImagem);
+}
+
+function aoTeclaImagem(e) {
+  if (e.key === "Escape") fecharImagem();
+}
+
+/**
+ * Mostra a imagem da prenda em tamanho grande.
+ *
+ * O que está guardado é só a miniatura (320 px de lado maior, ver a
+ * migração 011), por isso a vista é limitada a 480 px: acima disso
+ * já era ampliar pixéis e o resultado ficava pastoso.
+ */
+function abrirImagem(giftId, titulo) {
+  const ov = document.getElementById("img-popup");
+  const img = document.getElementById("img-popup-src");
+  const nome = document.getElementById("img-popup-titulo");
+  const ficheiro = document.getElementById("img-popup-ficheiro");
+  const src = imagens.get(giftId);
+  if (!ov || !img || !src) return;
+
+  imagemAberta = giftId;
+  img.src = src;
+  img.alt = titulo || "Prenda";
+  if (nome) nome.textContent = titulo || "";
+  ov.classList.remove("hidden");
+
+  if (ficheiro) {
+    ficheiro.value = "";
+    ficheiro.onchange = async () => {
+      const file = ficheiro.files?.[0];
+      ficheiro.value = "";
+      if (!file || !imagemAberta) return;
+      const id = imagemAberta;
+      await subirImagem(id, file);
+      // O render refez a tabela; a janela continua aberta e passa a
+      // mostrar a imagem nova.
+      const nova = imagens.get(id);
+      if (nova) { imagemAberta = id; img.src = nova; }
+      else fecharImagem();
+    };
+  }
+
+  ov.onclick = e => { if (e.target === ov) fecharImagem(); };
+  const btn = document.getElementById("img-popup-fechar");
+  if (btn) btn.onclick = fecharImagem;
+  document.addEventListener("keydown", aoTeclaImagem);
 }
 
 /**
@@ -648,6 +722,7 @@ function ligarEventos(categorias) {
           else if (accao === "apagar") await apagar(giftId);
           else if (accao === "validar") await validar(giftId, virtual, garantir, row);
           else if (accao === "tirar-imagem") await tirarImagem(giftId);
+          else if (accao === "ver-imagem") abrirImagem(giftId, titulo.value);
           else if (accao === "trocar-direccao") await trocarDireccao(giftId);
         } finally {
           btn.disabled = false;
@@ -702,6 +777,7 @@ async function tirarImagem(giftId) {
   try {
     await db.deleteGiftImage(giftId);
     imagens.delete(giftId);
+    if (imagemAberta === giftId) fecharImagem();
     await renderPrendasPage();
   } catch (err) {
     console.error("Erro ao remover a imagem:", err);

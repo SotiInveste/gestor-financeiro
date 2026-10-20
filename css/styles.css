@@ -804,6 +804,7 @@ body {
 .prenda-img-cel { width: 76px; white-space: nowrap; }
 
 .prenda-img {
+  padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
   width: 48px; height: 48px; cursor: pointer; overflow: hidden;
   border: 1px dashed var(--border-strong); border-radius: 8px;
@@ -1094,3 +1095,28 @@ body {
    dois seletores na seguinte, que é exactamente o que se quer — não
    vale a pena uma regra própria para o repetir. */
 .prendas-filtros select { flex: 0 1 auto; }
+
+/* ═══ Imagem de uma prenda, em grande ═══
+   O que está guardado é só a miniatura de 320 px (migração 011), por
+   isso a vista é limitada a 480: acima disso seria ampliar pixéis e
+   o resultado ficava pastoso. */
+.img-overlay {
+  position: fixed; inset: 0; background: var(--modal-backdrop);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 260; padding: 20px;
+}
+.img-caixa {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 12px; max-width: 100%;
+  display: flex; flex-direction: column; gap: 10px;
+}
+#img-popup-src {
+  display: block; border-radius: 8px;
+  max-width: min(84vw, 480px); max-height: 66vh;
+  width: auto; height: auto; object-fit: contain; margin: 0 auto;
+}
+.img-accoes {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  justify-content: flex-end;
+}
+#img-popup-titulo { margin-right: auto; font-size: 13px; }
