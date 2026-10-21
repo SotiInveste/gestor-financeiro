@@ -70,7 +70,7 @@ Supabase. As migrações em `supabase/migrations/` são aditivas e idempotentes.
    `state.categories`. Nunca voltar a pôr listas de categorias no código.
 10. **Movimentos e regras apontam para `category_id`, nunca para o nome.**
     É isso que permite renomear uma categoria sem tocar no histórico. A coluna
-    `category_legacy` é resíduo da migração — não escrever lá.
+    `category_legacy` deixou de existir na migração 014 (22/10/2026).
 11. **Nunca criar índices únicos sobre expressões** (`upper(x)`) se o código faz
     upsert por colunas. O `ON CONFLICT` não consegue associá-los e o upsert
     falha em silêncio. Normalizar no código e indexar a coluna simples.
@@ -247,8 +247,26 @@ Migradas de constantes para tabelas em 26/08/2026 (migrações 002 a 004).
 - O seletor mostra sempre a categoria atual do movimento a ser editado, mesmo
   arquivada — senão desapareceria do próprio seletor.
 
-**Por fazer (Fase 6):** largar `category_legacy` de `fin_transactions` e
-`fin_rules`, mas só depois de um fecho de mês completo sem incidentes.
+**Fase 6 concluída a 22/10/2026** (migração 014): a `category_legacy` saiu
+do `fin_transactions` e do `fin_rules`.
+
+Porque saiu, e não por arrumação: depois de meses de uso o texto antigo
+estava desactualizado **por desenho** — categorias renomeadas e, sobretudo,
+dezenas de movimentos que entraram no destino por omissão («Outros») e foram
+arrumados depois. A coluna tinha deixado de ser testemunha e passara a ser
+uma armadilha para quem a lesse a pensar que dizia a verdade.
+
+Antes do corte ficou provado que **0 movimentos e 0 regras** apontavam para
+categorias inexistentes ou estavam sem `category_id`. Essa é a verificação
+que interessa; comparar o texto antigo com o nome actual **não serve** — dá
+divergências legítimas aos montes.
+
+**Lição de 22/10/2026 — uma exportação não é um backup sem se contar as
+linhas.** O CSV de salvaguarda da coluna saiu do SQL Editor do Supabase com
+apenas as **100 primeiras linhas** (o botão exporta só o que está no ecrã),
+cobrindo até 12/03 de dados que iam até Outubro. Só se deu por isso depois
+do `drop`, e o resto não se recupera. Conferir sempre a contagem antes de
+tratar uma exportação como cópia de segurança.
 
 ## Poupança e o saldo
 
