@@ -1120,3 +1120,32 @@ body {
   justify-content: flex-end;
 }
 #img-popup-titulo { margin-right: auto; font-size: 13px; }
+
+/* ═══ Despesas por grupo, no painel ═══
+   Cada grupo abre para as suas categorias. É um <details>, por isso
+   fecha-se sozinho a cada repintura — o painel abre pela vista geral. */
+.chart-grid .card-largo { grid-column: 1 / -1; }
+
+.grupo-dash { border-bottom: 1px solid var(--border-soft); }
+.grupo-dash:last-child { border-bottom: none; }
+
+.grupo-dash > summary {
+  cursor: pointer; list-style: none;
+  border-radius: 8px; padding: 2px 4px;
+}
+/* O triângulo nativo não encaixa numa linha em flex e muda de browser
+   para browser; o chevron é desenhado aqui. */
+.grupo-dash > summary::-webkit-details-marker { display: none; }
+.grupo-dash > summary:hover { background: var(--hover); }
+.grupo-dash > summary .top-row { margin: 7px 0; }
+
+.grupo-dash .chevron {
+  display: inline-block; width: 10px; color: var(--muted);
+  transition: transform .15s ease; font-size: 14px; line-height: 1;
+}
+.grupo-dash[open] > summary .chevron { transform: rotate(90deg); }
+
+.grupo-dash-cats { padding: 2px 0 10px 32px; }
+.grupo-dash-cats .top-row { margin-bottom: 7px; }
+.grupo-dash-cats .name { color: var(--text-soft); font-size: 12px; }
+.grupo-dash-cats .val { font-size: 12px; font-weight: 500; }

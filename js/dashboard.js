@@ -65,10 +65,8 @@ export function renderDashboard() {
     const porGrupo = expensesByGroup(list);
 
     renderDonut("grupos", "chart-groups", "legend-groups", porGrupo, totals.expense);
-    renderTopList("top-groups", porGrupo, totals.expense);
-
     renderDonut("categorias", "chart-categories", "legend-categories", porCategoria, totals.expense);
-    renderTopList("top-categories", porCategoria, totals.expense);
+    renderGruposComCategorias(porGrupo, porCategoria, totals.expense);
   }
 }
 
@@ -172,24 +170,84 @@ function renderDonut(chave, canvasId, legendId, data, totalExpense) {
 }
 
 /** Lista ordenada de despesas. Serve categorias e grupos. */
-function renderTopList(containerId, data, totalExpense) {
-  const container = document.getElementById(containerId);
+/**
+ * As categorias de cada grupo, a partir da lista já agregada.
+ *
+ * O expensesByCategory devolve-as ordenadas por valor, e separá-las
+ * por grupo mantém essa ordem — a maior de cada grupo aparece
+ * primeiro, como no gráfico.
+ *
+ * Um movimento sem categoria cai em "sem-categoria" na lista das
+ * categorias e em "sem-grupo" na dos grupos. O get() falha, o || a
+ * seguir apanha-o, e os dois lados encontram-se na mesma chave.
+ */
+function categoriasPorGrupo(porCategoria) {
+  const grupoDe = new Map(state.categories.map(c => [c.id, c.group_id]));
+  const mapa = new Map();
+
+  porCategoria.forEach(c => {
+    const g = grupoDe.get(c.id) || "sem-grupo";
+    if (!mapa.has(g)) mapa.set(g, []);
+    mapa.get(g).push(c);
+  });
+  return mapa;
+}
+
+/**
+ * Todos os grupos com despesa no mês, cada um a abrir para as suas
+ * categorias.
+ *
+ * Sem corte: a lista antiga parava nos 9 maiores e o resto do mês
+ * ficava invisível.
+ *
+ * As percentagens — a do grupo e a das categorias — são sobre o
+ * total de despesas do mês, não sobre o grupo. Assim uma categoria
+ * vale o mesmo número onde quer que apareça, e podem comparar-se
+ * linhas de grupos diferentes.
+ *
+ * O <details> fecha-se sozinho a cada repintura, que é o que se
+ * quer: o painel abre pela vista geral e abre-se só o que interessa.
+ */
+function renderGruposComCategorias(porGrupo, porCategoria, totalExpense) {
+  const container = document.getElementById("top-groups");
   if (!container) return;
 
-  if (!data.length) {
+  if (!porGrupo.length) {
     container.innerHTML = '<span class="muted">Sem despesas neste mês.</span>';
     return;
   }
 
-  container.innerHTML = data.slice(0, 9).map((c, i) => {
-    const pct = totalExpense ? ((c.value / totalExpense) * 100).toFixed(0) : 0;
-    const color = c.cor || CHART_COLORS[i % CHART_COLORS.length];
-    return `<div class="top-row">
-      <span class="legend-dot" style="background:${color}"></span>
-      <span class="name">${esc(c.name)}</span>
-      <span class="val">${fmt(c.value)}</span>
-      <span class="pct">${pct}%</span>
-    </div>`;
+  const pct = v => (totalExpense ? ((v / totalExpense) * 100).toFixed(0) : 0);
+  const porG = categoriasPorGrupo(porCategoria);
+
+  container.innerHTML = porGrupo.map((g, i) => {
+    // Mesmo índice que o gráfico usa, para a bolinha ficar com a cor
+    // da fatia correspondente.
+    const cor = g.cor || CHART_COLORS[i % CHART_COLORS.length];
+    const cats = porG.get(g.id) || [];
+
+    const linhas = cats.length
+      ? cats.map(c => `
+          <div class="top-row">
+            <span class="name">${esc(c.name)}</span>
+            <span class="val">${fmt(c.value)}</span>
+            <span class="pct">${pct(c.value)}%</span>
+          </div>`).join("")
+      : '<span class="muted">Sem categorias.</span>';
+
+    return `
+      <details class="grupo-dash">
+        <summary>
+          <div class="top-row">
+            <span class="chevron" aria-hidden="true">\u203A</span>
+            <span class="legend-dot" style="background:${cor}"></span>
+            <span class="name">${esc(g.name)}</span>
+            <span class="val">${fmt(g.value)}</span>
+            <span class="pct">${pct(g.value)}%</span>
+          </div>
+        </summary>
+        <div class="grupo-dash-cats">${linhas}</div>
+      </details>`;
   }).join("");
 }
 
