@@ -213,6 +213,32 @@ export function noPeriodo(t) {
 }
 
 /**
+ * Movimentos de despesa do período, agrupados por categoria.
+ *
+ * Espelha o filtro do expensesByCategory de propósito — negativos e
+ * sem poupança. Se as duas regras divergirem, a lista aberta deixa
+ * de somar o valor que está escrito por cima dela, e é esse o pior
+ * defeito possível num painel.
+ *
+ * Maior primeiro, como os níveis de cima.
+ */
+export function expenseMovementsByCategory(list = currentMonthTransactions()) {
+  const tipos = mapaDeTipos();
+  const mapa = new Map();
+
+  list
+    .filter(t => t.amount < 0 && tipos.get(t.category_id) !== "saving")
+    .forEach(t => {
+      const key = t.category_id || "sem-categoria";
+      if (!mapa.has(key)) mapa.set(key, []);
+      mapa.get(key).push(t);
+    });
+
+  mapa.forEach(arr => arr.sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)));
+  return mapa;
+}
+
+/**
  * Nome de uma categoria a partir do estado local.
  *
  * Resolvido aqui em vez de importar categories.js: esse módulo já

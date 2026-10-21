@@ -1145,7 +1145,50 @@ body {
 }
 .grupo-dash[open] > summary .chevron { transform: rotate(90deg); }
 
-.grupo-dash-cats { padding: 2px 0 10px 32px; }
-.grupo-dash-cats .top-row { margin-bottom: 7px; }
-.grupo-dash-cats .name { color: var(--text-soft); font-size: 12px; }
-.grupo-dash-cats .val { font-size: 12px; font-weight: 500; }
+/* Linhas-guia: o traço vertical de cada nível aberto diz a que
+   grupo ou categoria pertence a linha que se está a ler. Sem ele,
+   três níveis de indentação perdem-se de vista. */
+.grupo-dash-cats {
+  margin: 0 0 8px 13px;
+  padding-left: 16px;
+  border-left: 2px solid var(--border);
+}
+.grupo-dash-cats > .top-row { margin-bottom: 7px; }
+
+/* ─── Nível 2: categoria ─── */
+
+.cat-dash > summary {
+  cursor: pointer; list-style: none; border-radius: 6px; padding: 1px 4px;
+}
+.cat-dash > summary::-webkit-details-marker { display: none; }
+.cat-dash > summary:hover { background: var(--hover); }
+.cat-dash > summary .top-row { margin: 5px 0; }
+.cat-dash > summary .name { color: var(--text-soft); font-size: 12px; }
+.cat-dash > summary .val { font-size: 12px; font-weight: 500; }
+.cat-dash[open] > summary .chevron { transform: rotate(90deg); }
+
+/* Quantos movimentos compõem o valor. 180 € numa compra é outra
+   coisa que 180 € em doze. */
+.mov-conta {
+  font-size: 10px; color: var(--faint); white-space: nowrap;
+  padding: 1px 6px; border-radius: 999px; background: var(--surface-soft);
+}
+
+/* ─── Nível 3: movimentos ─── */
+
+.cat-dash-movs {
+  margin: 0 0 6px 10px;
+  padding-left: 14px;
+  border-left: 2px solid var(--border-soft);
+}
+.mov-dash { margin-bottom: 5px; }
+.mov-dash .mov-data {
+  font-size: 11px; color: var(--faint); white-space: nowrap; width: 54px;
+}
+/* A descrição do banco é longa; corta-se com reticências e o título
+   mostra-a inteira ao passar o rato. */
+.mov-dash .name {
+  font-size: 11px; color: var(--text-soft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.mov-dash .val { font-size: 11px; font-weight: 500; }

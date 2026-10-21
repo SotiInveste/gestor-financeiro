@@ -4,9 +4,10 @@
 
 import {
   state, currentMonthTransactions, monthTotals,
-  expensesByCategory, expensesByGroup, yearlySeries, ANUAL,
+  expensesByCategory, expensesByGroup, expenseMovementsByCategory,
+  yearlySeries, ANUAL,
 } from "./state.js";
-import { fmt, MONTHS_SHORT, CHART_COLORS, esc } from "./utils.js";
+import { fmt, MONTHS_SHORT, CHART_COLORS, esc, shortDate } from "./utils.js";
 import { themeColors } from "./theme.js";
 
 // Guardados para poderem ser destruídos antes de repintar: o Chart.js
@@ -66,7 +67,7 @@ export function renderDashboard() {
 
     renderDonut("grupos", "chart-groups", "legend-groups", porGrupo, totals.expense);
     renderDonut("categorias", "chart-categories", "legend-categories", porCategoria, totals.expense);
-    renderGruposComCategorias(porGrupo, porCategoria, totals.expense);
+    renderGruposComCategorias(porGrupo, porCategoria, totals.expense, list);
   }
 }
 
@@ -194,6 +195,41 @@ function categoriasPorGrupo(porCategoria) {
 }
 
 /**
+ * Uma categoria do painel, a abrir para os seus movimentos.
+ *
+ * Sem percentagem ao nível do movimento: três colunas de
+ * percentagens encavalitadas são ruído, e ali o que interessa é
+ * quanto custou.
+ *
+ * A descrição é a do banco, a mesma que aparece na página de
+ * Movimentos — é por ela que se reconhece a linha.
+ */
+function categoriaHTML(c, movimentos, pct) {
+  const n = movimentos.length;
+
+  const linhas = movimentos.map(t => `
+    <div class="top-row mov-dash">
+      <span class="mov-data">${shortDate(t.value_date)}</span>
+      <span class="name" title="${esc(t.description)}">${esc(t.description)}</span>
+      <span class="val">${fmt(Math.abs(Number(t.amount)))}</span>
+    </div>`).join("");
+
+  return `
+    <details class="cat-dash">
+      <summary>
+        <div class="top-row">
+          <span class="chevron" aria-hidden="true">\u203A</span>
+          <span class="name">${esc(c.name)}</span>
+          <span class="mov-conta">${n} mov.</span>
+          <span class="val">${fmt(c.value)}</span>
+          <span class="pct">${pct(c.value)}%</span>
+        </div>
+      </summary>
+      <div class="cat-dash-movs">${linhas}</div>
+    </details>`;
+}
+
+/**
  * Todos os grupos com despesa no mês, cada um a abrir para as suas
  * categorias.
  *
@@ -208,7 +244,7 @@ function categoriasPorGrupo(porCategoria) {
  * O <details> fecha-se sozinho a cada repintura, que é o que se
  * quer: o painel abre pela vista geral e abre-se só o que interessa.
  */
-function renderGruposComCategorias(porGrupo, porCategoria, totalExpense) {
+function renderGruposComCategorias(porGrupo, porCategoria, totalExpense, list) {
   const container = document.getElementById("top-groups");
   if (!container) return;
 
@@ -219,6 +255,7 @@ function renderGruposComCategorias(porGrupo, porCategoria, totalExpense) {
 
   const pct = v => (totalExpense ? ((v / totalExpense) * 100).toFixed(0) : 0);
   const porG = categoriasPorGrupo(porCategoria);
+  const movsDe = expenseMovementsByCategory(list);
 
   container.innerHTML = porGrupo.map((g, i) => {
     // Mesmo índice que o gráfico usa, para a bolinha ficar com a cor
@@ -227,12 +264,7 @@ function renderGruposComCategorias(porGrupo, porCategoria, totalExpense) {
     const cats = porG.get(g.id) || [];
 
     const linhas = cats.length
-      ? cats.map(c => `
-          <div class="top-row">
-            <span class="name">${esc(c.name)}</span>
-            <span class="val">${fmt(c.value)}</span>
-            <span class="pct">${pct(c.value)}%</span>
-          </div>`).join("")
+      ? cats.map(c => categoriaHTML(c, movsDe.get(c.id) || [], pct)).join("")
       : '<span class="muted">Sem categorias.</span>';
 
     return `
