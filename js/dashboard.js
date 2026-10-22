@@ -65,7 +65,7 @@ export function renderDashboard() {
     const porCategoria = expensesByCategory(list);
     const porGrupo = expensesByGroup(list);
 
-    renderDonut("grupos", "chart-groups", "legend-groups", porGrupo, totals.expense);
+    renderDonutGrupos(porGrupo, porCategoria, totals.expense);
     renderDonut("categorias", "chart-categories", "legend-categories", porCategoria, totals.expense);
     renderGruposComCategorias(porGrupo, porCategoria, totals.expense, list);
   }
@@ -109,6 +109,139 @@ function renderDestino(totals) {
  * Donut de despesas. Serve categorias e grupos — só mudam os dados e
  * os elementos onde desenha.
  */
+/**
+ * Clareia uma cor da paleta, misturando-a com branco.
+ *
+ * As categorias de um grupo são tons da mesma cor: assim o anel
+ * continua a ler-se como as fatias do grupo, e não como uma salada
+ * de cores sem relação entre si.
+ */
+function clarear(hex, quanto) {
+  const n = parseInt(hex.slice(1), 16);
+  const mistura = c => Math.round(c + (255 - c) * quanto);
+  const r = mistura((n >> 16) & 255);
+  const g = mistura((n >> 8) & 255);
+  const b = mistura(n & 255);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * Donut dos grupos, com cada fatia a dividir-se nas suas categorias
+ * quando o rato lá passa.
+ *
+ * Um anel só, e não dois: o gráfico desenha SEMPRE uma fatia por
+ * categoria, mas todas as de um grupo partilham a cor do grupo. Em
+ * repouso lê-se como uma fatia inteira; ao passar o rato, as do
+ * grupo apontado ganham tons distintos e as divisões aparecem.
+ *
+ * O número de fatias nunca muda — só as cores e o deslocamento. Se
+ * mudasse, o índice da fatia sob o rato mudava com ele e o gráfico
+ * entrava a piscar entre dois estados.
+ */
+function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
+  const canvas = document.getElementById("chart-groups");
+  const legend = document.getElementById("legend-groups");
+  if (!canvas) return;
+
+  if (graficos.grupos) graficos.grupos.destroy();
+  const cores = themeColors();
+
+  if (!porGrupo.length) {
+    if (legend) legend.innerHTML = '<span class="muted">Sem dados neste mês.</span>';
+    return;
+  }
+
+  const porG = categoriasPorGrupo(porCategoria);
+
+  // Uma entrada por fatia desenhada, a saber a que grupo pertence.
+  const fatias = [];
+  porGrupo.forEach((g, gi) => {
+    const base = g.cor || CHART_COLORS[gi % CHART_COLORS.length];
+    const cats = porG.get(g.id) || [];
+    const lista = cats.length ? cats : [{ name: g.name, value: g.value }];
+
+    lista.forEach((c, ci) => {
+      fatias.push({
+        grupo: gi,
+        grupoNome: g.name,
+        nome: c.name,
+        valor: c.value,
+        base,
+        // A maior categoria fica com a cor pura e as seguintes vão
+        // clareando — a ordem de leitura acompanha a do tamanho.
+        tom: clarear(base, lista.length > 1 ? (ci / lista.length) * 0.55 : 0),
+      });
+    });
+  });
+
+  let apontado = -1;   // índice do grupo sob o rato, ou -1
+
+  const fundos = () => fatias.map(f => (apontado === f.grupo ? f.tom : f.base));
+  const saltos = () => fatias.map(f => (apontado === f.grupo ? 12 : 0));
+  // A borda só aparece no grupo apontado: é o que separa as
+  // categorias umas das outras. Em repouso seria uma teia de linhas
+  // a cortar fatias que se querem inteiras.
+  const bordas = () => fatias.map(f => (apontado === f.grupo ? 2 : 0));
+
+  graficos.grupos = new Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels: fatias.map(f => f.nome),
+      datasets: [{
+        data: fatias.map(f => f.valor),
+        backgroundColor: fundos(),
+        offset: saltos(),
+        borderWidth: bordas(),
+        borderColor: cores.surface,
+        hoverBorderColor: cores.surface,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "58%",
+      animation: { duration: 250 },
+      onHover: (evt, elementos, chart) => {
+        const alvo = elementos.length ? fatias[elementos[0].index].grupo : -1;
+        if (alvo === apontado) return;
+        apontado = alvo;
+        const d = chart.data.datasets[0];
+        d.backgroundColor = fundos();
+        d.offset = saltos();
+        d.borderWidth = bordas();
+        // "none": sem animação, senão cada passagem do rato
+        // recomeçava o desenho todo.
+        chart.update("none");
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => fatias[ctx[0].dataIndex].grupoNome,
+            label: ctx => {
+              const pct = totalExpense ? ((ctx.parsed / totalExpense) * 100).toFixed(1) : 0;
+              return ` ${ctx.label}: ${fmt(ctx.parsed)} (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Legenda só com os grupos: com 59 categorias passaria das vinte
+  // etiquetas e empurrava o gráfico para fora do cartão. As
+  // categorias dizem-se no tooltip e estão todas na lista por baixo.
+  if (!legend) return;
+  legend.innerHTML = porGrupo.map((g, i) => {
+    const pct = totalExpense ? ((g.value / totalExpense) * 100).toFixed(0) : 0;
+    const cor = g.cor || CHART_COLORS[i % CHART_COLORS.length];
+    return `<span class="legend-item">
+      <span class="legend-dot" style="background:${cor}"></span>
+      ${esc(g.name)} <b>${pct}%</b>
+    </span>`;
+  }).join("");
+}
+
 function renderDonut(chave, canvasId, legendId, data, totalExpense) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -207,10 +340,16 @@ function categoriasPorGrupo(porCategoria) {
 function categoriaHTML(c, movimentos, pct) {
   const n = movimentos.length;
 
+  // A nota, quando existe, fica numa segunda linha por baixo da
+  // descrição: lado a lado as duas competiam pelo mesmo espaço e
+  // ambas ficavam cortadas.
   const linhas = movimentos.map(t => `
     <div class="top-row mov-dash">
       <span class="mov-data">${shortDate(t.value_date)}</span>
-      <span class="name" title="${esc(t.description)}">${esc(t.description)}</span>
+      <span class="name">
+        <span class="mov-desc" title="${esc(t.description)}">${esc(t.description)}</span>
+        ${t.note ? `<span class="mov-nota">${esc(t.note)}</span>` : ""}
+      </span>
       <span class="val">${fmt(Math.abs(Number(t.amount)))}</span>
     </div>`).join("");
 

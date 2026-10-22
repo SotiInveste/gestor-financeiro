@@ -1170,7 +1170,11 @@ body {
 /* Quantos movimentos compõem o valor. 180 € numa compra é outra
    coisa que 180 € em doze. */
 .mov-conta {
-  font-size: 10px; color: var(--faint); white-space: nowrap;
+  /* --text-soft e não --faint: no tema escuro o faint dá 2,07:1 de
+     contraste sobre o fundo do cartão, muito abaixo do mínimo de
+     4,5:1. O text-soft dá 7,41:1 e continua mais discreto que a
+     descrição ao lado. */
+  font-size: 10px; color: var(--text-soft); white-space: nowrap;
   padding: 1px 6px; border-radius: 999px; background: var(--surface-soft);
 }
 
@@ -1182,13 +1186,24 @@ body {
   border-left: 2px solid var(--border-soft);
 }
 .mov-dash { margin-bottom: 5px; }
+.mov-dash { align-items: flex-start; }
 .mov-dash .mov-data {
-  font-size: 11px; color: var(--faint); white-space: nowrap; width: 54px;
+  /* Mesma razão do .mov-conta: o faint não se lê no tema escuro. */
+  font-size: 11px; color: var(--text-soft); white-space: nowrap;
+  width: 54px; line-height: 1.5;
 }
+.mov-dash .name { min-width: 0; }
+
 /* A descrição do banco é longa; corta-se com reticências e o título
    mostra-a inteira ao passar o rato. */
-.mov-dash .name {
-  font-size: 11px; color: var(--text-soft);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+.mov-desc, .mov-nota {
+  display: block; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.mov-desc { font-size: 11px; color: var(--text-soft); }
+.mov-nota { font-size: 11px; color: var(--muted); font-style: italic; }
+.mov-nota::before { content: "\201C"; }
+.mov-nota::after { content: "\201D"; }
+
+.mov-dash .val { line-height: 1.5; }
 .mov-dash .val { font-size: 11px; font-weight: 500; }
