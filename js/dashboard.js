@@ -109,6 +109,31 @@ function renderDestino(totals) {
  * Donut de despesas. Serve categorias e grupos — só mudam os dados e
  * os elementos onde desenha.
  */
+/** Quanto a fatia apontada salta para fora do anel, em pixéis. */
+const SALTO = 26;
+
+/**
+ * Sombra por baixo das fatias.
+ *
+ * O Chart.js não desenha sombras; isto liga as do próprio canvas
+ * antes do dataset e desliga-as a seguir. Dá relevo ao anel sem
+ * mudar geometria nenhuma — e a geometria é precisamente o que não
+ * se pode mexer, para o gráfico não saltar.
+ */
+const sombraDasFatias = {
+  id: "sombraDasFatias",
+  beforeDatasetDraw(chart) {
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, .28)";
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 3;
+  },
+  afterDatasetDraw(chart) {
+    chart.ctx.restore();
+  },
+};
+
 /**
  * Clareia uma cor da paleta, misturando-a com branco.
  *
@@ -202,15 +227,20 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
   let apontado = -1;
   let arcos = arcosDe(-1);
 
+  // Uma casa decimal, e com vírgula: arredondar a zero casas fazia
+  // 82,9% virar 83% e as fatias pequenas confundirem-se umas com as
+  // outras — várias apareciam todas como "2%".
+  const percent = v => (totalExpense ? (v / totalExpense) * 100 : 0)
+    .toLocaleString("pt-PT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
   const escrever = (gi) => {
     if (!centro) return;
     const g = gi >= 0 ? porGrupo[gi] : null;
     const valor = g ? g.value : totalExpense;
-    const pcent = totalExpense ? ((valor / totalExpense) * 100).toFixed(0) : 0;
     centro.innerHTML = `
       <span class="donut-nome">${esc(g ? g.name : "Despesas do mês")}</span>
       <span class="donut-valor">${fmt(valor)}</span>
-      ${g ? `<span class="donut-pct">${pcent}% do mês</span>` : ""}`;
+      <span class="donut-pct">${g ? `${percent(valor)}% do mês` : "total"}</span>`;
   };
   escrever(-1);
 
@@ -219,7 +249,7 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
     d.labels = arcos.map(a => a.nome);
     d.datasets[0].data = arcos.map(a => a.valor);
     d.datasets[0].backgroundColor = arcos.map(a => a.cor);
-    d.datasets[0].offset = arcos.map(a => (a.grupo === apontado ? 26 : 0));
+    d.datasets[0].offset = arcos.map(a => (a.grupo === apontado ? SALTO : 0));
     // "none": sem animação. Com ela, cada passagem do rato recomeçava
     // o desenho e o anel ficava a tremer.
     graficos.grupos.update("none");
@@ -236,7 +266,7 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
     const raio = Math.hypot(dx, dy);
     // Fora do anel não há grupo nenhum apontado — nem no buraco do
     // meio, onde está o texto.
-    if (raio < arco.innerRadius || raio > arco.outerRadius + 26) return -1;
+    if (raio < arco.innerRadius || raio > arco.outerRadius + SALTO) return -1;
 
     // O donut começa ao cimo; o atan2 começa à direita.
     const t = (((Math.atan2(dy, dx) + Math.PI / 2) % (2 * Math.PI)) + 2 * Math.PI)
@@ -245,8 +275,18 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
     return i;
   };
 
+  // O raio em pixéis, e não em percentagem, é o que impede o salto:
+  // o Chart.js desconta o maior offset do espaço disponível, por isso
+  // ao destacar uma fatia o anel inteiro encolhia 13 px e dava um
+  // solavanco. Fixo, fica do mesmo tamanho nos dois estados.
+  const raioDisponivel = () => {
+    const lado = Math.min(canvas.clientWidth || 300, canvas.clientHeight || 300);
+    return Math.max(50, lado / 2 - SALTO - 6);
+  };
+
   graficos.grupos = new Chart(canvas, {
     type: "doughnut",
+    plugins: [sombraDasFatias],
     data: {
       labels: arcos.map(a => a.nome),
       datasets: [{
@@ -263,7 +303,13 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
       responsive: true,
       maintainAspectRatio: false,
       cutout: "72%",
-      animation: { duration: 400 },
+      radius: raioDisponivel(),
+      animation: { duration: 400, easing: "easeOutQuart" },
+      // Ao mudar a janela, o raio tem de ser recalculado à mão: sendo
+      // um número fixo, não acompanha sozinho.
+      onResize: (chart) => {
+        chart.options.radius = raioDisponivel();
+      },
       onHover: (evt) => {
         const alvo = grupoEm(evt);
         if (alvo === apontado) return;
@@ -274,18 +320,10 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
       },
       plugins: {
         legend: { display: false },
-        // O centro diz o grupo; o tooltip diz a categoria sob o rato.
-        // São coisas diferentes e não se repetem.
-        tooltip: {
-          displayColors: false,
-          callbacks: {
-            title: ctx => porGrupo[arcos[ctx[0].dataIndex].grupo].name,
-            label: ctx => {
-              const pct = totalExpense ? ((ctx.parsed / totalExpense) * 100).toFixed(1) : 0;
-              return ` ${ctx.label}: ${fmt(ctx.parsed)} (${pct}%)`;
-            },
-          },
-        },
+        // Sem tooltip: a informação já está no centro do anel, e uma
+        // caixa a seguir o rato por cima do gráfico tapava justamente
+        // as fatias que se está a tentar ver.
+        tooltip: { enabled: false },
       },
     },
   });
@@ -483,7 +521,10 @@ function renderGruposComCategorias(porGrupo, porCategoria, totalExpense, list) {
     return;
   }
 
-  const pct = v => (totalExpense ? ((v / totalExpense) * 100).toFixed(0) : 0);
+  // Mesma regra do centro do gráfico: uma casa decimal. Com zero
+  // casas, o gráfico dizia 82,9% e a lista 83% para o mesmo grupo.
+  const pct = v => (totalExpense ? (v / totalExpense) * 100 : 0)
+    .toLocaleString("pt-PT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const porG = categoriasPorGrupo(porCategoria);
   const movsDe = expenseMovementsByCategory(list);
 

@@ -1157,13 +1157,20 @@ body {
 
 /* ─── Nível 2: categoria ─── */
 
+/* A categoria tinha quase o mesmo aspecto do movimento por baixo
+   dela e os dois níveis liam-se como um só. Ganha fundo próprio e um
+   traço à esquerda, que a separa da lista que abre por baixo. */
 .cat-dash > summary {
-  cursor: pointer; list-style: none; border-radius: 6px; padding: 1px 4px;
+  cursor: pointer; list-style: none; border-radius: 6px;
+  padding: 2px 8px; background: var(--surface-soft);
+  border-left: 3px solid var(--border-strong);
 }
+.cat-dash[open] > summary { border-left-color: var(--blue); }
 .cat-dash > summary::-webkit-details-marker { display: none; }
 .cat-dash > summary:hover { background: var(--hover); }
+.cat-dash { margin-bottom: 4px; }
 .cat-dash > summary .top-row { margin: 5px 0; }
-.cat-dash > summary .name { color: var(--text-soft); font-size: 12px; }
+.cat-dash > summary .name { color: var(--text); font-size: 12px; font-weight: 600; }
 .cat-dash > summary .val { font-size: 12px; font-weight: 500; }
 .cat-dash[open] > summary .chevron { transform: rotate(90deg); }
 
@@ -1229,7 +1236,7 @@ body {
   font-size: 12px; color: var(--text-soft); font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
-.donut-valor { font-size: 22px; font-weight: 700; letter-spacing: -.5px; }
+.donut-valor { font-size: 26px; font-weight: 800; letter-spacing: -.8px; line-height: 1.1; }
 .donut-pct { font-size: 11px; color: var(--muted); }
 
 /* Cabeçalho da lista, com o botão de abrir tudo à direita. */
