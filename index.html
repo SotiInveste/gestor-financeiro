@@ -163,6 +163,17 @@
           <h2 class="card-title">Evolução anual — <span id="year-label"></span></h2>
           <div class="chart-wrap tall"><canvas id="chart-evolution"></canvas></div>
         </div>
+
+        <!-- A mesma lista da vista mensal, mas do ano inteiro: grupo,
+             categorias dentro dele, movimentos dentro de cada uma. -->
+        <div id="card-grupos-ano" class="card card-largo hidden">
+          <div class="lista-head">
+            <h2 class="card-title">Despesas por grupo — <span id="year-label-grupos"></span></h2>
+            <button id="btn-expandir-tudo-ano" class="btn btn-ghost btn-mini"
+              type="button">Expandir tudo</button>
+          </div>
+          <div id="top-groups-ano" class="top-list"></div>
+        </div>
       </section>
 
       <!-- ═══ MOVIMENTOS ═══ -->

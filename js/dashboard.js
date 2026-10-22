@@ -45,19 +45,30 @@ export function renderDashboard() {
   const empty = document.getElementById("dashboard-empty");
   const charts = document.getElementById("dashboard-charts");
   const evolucao = document.getElementById("card-evolution");
+  const gruposAno = document.getElementById("card-grupos-ano");
   const isEmpty = list.length === 0;
 
   if (evolucao) evolucao.classList.toggle("hidden", !anual);
+  if (gruposAno) gruposAno.classList.toggle("hidden", !anual || isEmpty);
   empty.classList.toggle("hidden", !isEmpty);
   charts.classList.toggle("hidden", anual || isEmpty);
 
-  const yearLabel = document.getElementById("year-label");
-  if (yearLabel) yearLabel.textContent = state.year;
+  document.querySelectorAll("#year-label, #year-label-grupos")
+    .forEach(el => { el.textContent = state.year; });
 
   renderDestino(totals);
 
   if (anual) {
     renderEvolutionChart();
+    // A lista por grupo serve as duas vistas: o que muda é o período
+    // que o currentMonthTransactions devolve, e aqui é o ano inteiro.
+    if (!isEmpty) {
+      renderGruposComCategorias(
+        expensesByGroup(list), expensesByCategory(list), totals.expense, list,
+        "top-groups-ano",
+      );
+      ligarExpandirTudo("btn-expandir-tudo-ano", "top-groups-ano");
+    }
     return;
   }
 
@@ -66,8 +77,8 @@ export function renderDashboard() {
     const porGrupo = expensesByGroup(list);
 
     renderDonutGrupos(porGrupo, porCategoria, totals.expense);
-    renderGruposComCategorias(porGrupo, porCategoria, totals.expense, list);
-    ligarExpandirTudo();
+    renderGruposComCategorias(porGrupo, porCategoria, totals.expense, list, "top-groups");
+    ligarExpandirTudo("btn-expandir-tudo", "top-groups");
   }
 }
 
@@ -608,9 +619,9 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
  * O botao diz o que vai fazer, nao o estado em que esta: com algum
  * fechado, abre tudo; so quando esta tudo aberto e que passa a fechar.
  */
-function ligarExpandirTudo() {
-  const btn = document.getElementById("btn-expandir-tudo");
-  const lista = document.getElementById("top-groups");
+function ligarExpandirTudo(idBotao, idLista) {
+  const btn = document.getElementById(idBotao);
+  const lista = document.getElementById(idLista);
   if (!btn || !lista) return;
 
   const todos = () => [...lista.querySelectorAll("details")];
@@ -761,8 +772,11 @@ function categoriaHTML(c, movimentos, pct) {
 }
 
 /**
- * Todos os grupos com despesa no mês, cada um a abrir para as suas
- * categorias.
+ * Todos os grupos com despesa no período, cada um a abrir para as
+ * suas categorias.
+ *
+ * Serve a vista mensal e a anual — a lista é a mesma, só muda o
+ * período que lhe é dado e o sítio onde a escreve.
  *
  * Sem corte: a lista antiga parava nos 9 maiores e o resto do mês
  * ficava invisível.
@@ -775,12 +789,12 @@ function categoriaHTML(c, movimentos, pct) {
  * O <details> fecha-se sozinho a cada repintura, que é o que se
  * quer: o painel abre pela vista geral e abre-se só o que interessa.
  */
-function renderGruposComCategorias(porGrupo, porCategoria, totalExpense, list) {
-  const container = document.getElementById("top-groups");
+function renderGruposComCategorias(porGrupo, porCategoria, totalExpense, list, idLista) {
+  const container = document.getElementById(idLista);
   if (!container) return;
 
   if (!porGrupo.length) {
-    container.innerHTML = '<span class="muted">Sem despesas neste mês.</span>';
+    container.innerHTML = '<span class="muted">Sem despesas neste período.</span>';
     return;
   }
 
