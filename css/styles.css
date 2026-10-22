@@ -1235,6 +1235,14 @@ body {
   pointer-events: none;
   max-width: 54%; margin: 0 auto;
 }
+/* O grupo a que a categoria pertence, por cima do nome dela. Mais
+   pequeno e em maiúsculas pequenas: lê-se como etiqueta e não
+   compete com o nome da categoria logo por baixo. */
+.donut-grupo {
+  font-size: 10px; color: var(--muted); font-weight: 700;
+  letter-spacing: .6px; text-transform: uppercase;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
 .donut-nome {
   font-size: 12px; color: var(--text-soft); font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;

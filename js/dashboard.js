@@ -339,6 +339,9 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
 
   let apontado = -1;
   let arcos = arcosDe(-1);
+  // O que o centro está a mostrar neste momento.
+  let apontadoEscrito = -1;
+  let catEscrita = "";
 
   // Uma casa decimal, e com vírgula: arredondar a zero casas fazia
   // 82,9% virar 83% e as fatias pequenas confundirem-se umas com as
@@ -346,12 +349,23 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
   const percent = v => (totalExpense ? (v / totalExpense) * 100 : 0)
     .toLocaleString("pt-PT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-  const escrever = (gi) => {
+  /**
+   * O que está escrito no meio do anel.
+   *
+   * Três casos: sem rato, o total do mês; sobre um grupo, o grupo;
+   * sobre uma categoria do grupo aberto, a categoria — com o nome e o
+   * total do grupo por cima. Aberto o grupo, todos os pontos do anel
+   * passam a ser categorias; sem esta linha, o total do grupo deixava
+   * de se poder ver.
+   */
+  const escrever = (gi, cat) => {
     if (!centro) return;
     const g = gi >= 0 ? porGrupo[gi] : null;
-    const valor = g ? g.value : totalExpense;
+    const nome = cat ? cat.nome : (g ? g.name : "Despesas do mês");
+    const valor = cat ? cat.valor : (g ? g.value : totalExpense);
     centro.innerHTML = `
-      <span class="donut-nome">${esc(g ? g.name : "Despesas do mês")}</span>
+      ${cat ? `<span class="donut-grupo">${esc(g.name)} · ${fmt(g.value)}</span>` : ""}
+      <span class="donut-nome">${esc(nome)}</span>
       <span class="donut-valor">${fmt(valor)}</span>
       <span class="donut-pct">${g ? `${percent(valor)}% do mês` : "total"}</span>`;
   };
@@ -392,24 +406,48 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
     graficos.grupos.update("none");
   };
 
-  /** Que grupo está sob o rato, pelo ângulo e não pelo índice do arco. */
-  const grupoEm = (evt) => {
-    const meta = graficos.grupos.getDatasetMeta(0);
-    const arco = meta.data[0];
+  /**
+   * Onde está o rato no anel, de 0 a 1 a contar do cimo, ou -1 fora.
+   *
+   * É pelo ângulo, e não pelo arco que o Chart.js diz estar sob o
+   * rato: o índice do arco muda quando um grupo se abre em
+   * categorias, o ângulo não.
+   */
+  const anguloEm = (evt) => {
+    const arco = graficos.grupos.getDatasetMeta(0).data[0];
     if (!arco) return -1;
 
     const dx = evt.x - arco.x;
     const dy = evt.y - arco.y;
     const raio = Math.hypot(dx, dy);
-    // Fora do anel não há grupo nenhum apontado — nem no buraco do
-    // meio, onde está o texto.
+    // Fora do anel não há nada apontado — nem no buraco do meio, onde
+    // está o texto.
     if (raio < arco.innerRadius || raio > arco.outerRadius + SALTO + CRESCIMENTO) return -1;
 
     // O donut começa ao cimo; o atan2 começa à direita.
-    const t = (((Math.atan2(dy, dx) + Math.PI / 2) % (2 * Math.PI)) + 2 * Math.PI)
+    return (((Math.atan2(dy, dx) + Math.PI / 2) % (2 * Math.PI)) + 2 * Math.PI)
       % (2 * Math.PI) / (2 * Math.PI);
-    const i = limites.findIndex(l => t >= l.de && t < l.ate);
-    return i;
+  };
+
+  /** Que grupo ocupa aquele ângulo. */
+  const grupoEm = t => (t < 0 ? -1 : limites.findIndex(l => t >= l.de && t < l.ate));
+
+  /**
+   * Que fatia desenhada ocupa aquele ângulo.
+   *
+   * Com o grupo aberto, as fatias são as suas categorias — é isto que
+   * permite ao centro seguir a categoria e não ficar parado no total
+   * do grupo.
+   */
+  const fatiaEm = (t) => {
+    if (t < 0) return null;
+    let acumulado = 0;
+    for (const a of arcos) {
+      const de = acumulado / total;
+      acumulado += a.valor;
+      if (t >= de && t < acumulado / total) return a;
+    }
+    return null;
   };
 
   // O raio em pixéis, e não em percentagem, é o que impede o salto:
@@ -458,12 +496,26 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
         chart.options.radius = raioDisponivel();
       },
       onHover: (evt) => {
-        const alvo = grupoEm(evt);
-        if (alvo === apontado) return;
-        apontado = alvo;
-        arcos = arcosDe(alvo);
-        escrever(alvo);
-        aplicar();
+        const t = anguloEm(evt);
+        const alvo = grupoEm(t);
+
+        if (alvo !== apontado) {
+          apontado = alvo;
+          arcos = arcosDe(alvo);
+          aplicar();
+        }
+
+        // Dentro do grupo aberto, o centro segue a categoria sob o
+        // rato. Só se reescreve quando muda: a cada movimento do rato
+        // seria refazer o HTML centenas de vezes por segundo.
+        const fatia = fatiaEm(t);
+        const cat = fatia && fatia.dentro ? fatia : null;
+        const agora = cat ? cat.nome : "";
+        if (alvo !== apontadoEscrito || agora !== catEscrita) {
+          apontadoEscrito = alvo;
+          catEscrita = agora;
+          escrever(alvo, cat);
+        }
       },
       plugins: {
         legend: { display: false },
@@ -482,8 +534,10 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
   // Sair do gráfico devolve tudo ao estado de repouso: sem isto, o
   // último grupo apontado ficava aceso depois de o rato sair.
   canvas.onmouseleave = () => {
-    if (apontado === -1) return;
+    if (apontado === -1 && catEscrita === "") return;
     apontado = -1;
+    apontadoEscrito = -1;
+    catEscrita = "";
     arcos = arcosDe(-1);
     escrever(-1);
     aplicar();
