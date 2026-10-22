@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=53">
+  <link rel="stylesheet" href="css/styles.css?v=54">
 
   <!-- PWA: instalável no Android. Caminhos relativos de propósito —
        a app vive em /gestor-financeiro/ e não na raiz do domínio. -->
@@ -136,21 +136,25 @@
         </div>
 
         <div id="dashboard-charts" class="chart-grid">
-          <div class="card">
+          <div class="card card-largo">
             <h2 class="card-title">Despesas por grupo - Gráfico</h2>
-            <div class="chart-wrap"><canvas id="chart-groups"></canvas></div>
-            <div id="legend-groups" class="legend"></div>
-          </div>
-          <div class="card">
-            <h2 class="card-title">Despesas por categoria</h2>
-            <div class="chart-wrap"><canvas id="chart-categories"></canvas></div>
-            <div id="legend-categories" class="legend"></div>
+            <!-- O centro do donut deixa de estar vazio: mostra a fatia
+                 sob o rato. Sobreposto em HTML e não desenhado na tela,
+                 para herdar as cores e os tipos de letra do tema. -->
+            <div class="donut-wrap">
+              <div class="chart-wrap tall"><canvas id="chart-groups"></canvas></div>
+              <div id="donut-centro" class="donut-centro" aria-live="polite"></div>
+            </div>
           </div>
           <!-- A lista ocupa a linha toda: cresceu para todos os grupos e
                ainda abre as categorias de cada um. Ficava apertada a meia
                largura, e sem ela a grelha tinha um buraco. -->
           <div class="card card-largo">
-            <h2 class="card-title">Despesas por grupo</h2>
+            <div class="lista-head">
+              <h2 class="card-title">Despesas por grupo</h2>
+              <button id="btn-expandir-tudo" class="btn btn-ghost btn-mini"
+                type="button">Expandir tudo</button>
+            </div>
             <div id="top-groups" class="top-list"></div>
           </div>
         </div>

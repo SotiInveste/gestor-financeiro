@@ -66,8 +66,8 @@ export function renderDashboard() {
     const porGrupo = expensesByGroup(list);
 
     renderDonutGrupos(porGrupo, porCategoria, totals.expense);
-    renderDonut("categorias", "chart-categories", "legend-categories", porCategoria, totals.expense);
     renderGruposComCategorias(porGrupo, porCategoria, totals.expense, list);
+    ligarExpandirTudo();
   }
 }
 
@@ -140,84 +140,146 @@ function clarear(hex, quanto) {
  */
 function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
   const canvas = document.getElementById("chart-groups");
-  const legend = document.getElementById("legend-groups");
+  const centro = document.getElementById("donut-centro");
   if (!canvas) return;
 
   if (graficos.grupos) graficos.grupos.destroy();
   const cores = themeColors();
 
   if (!porGrupo.length) {
-    if (legend) legend.innerHTML = '<span class="muted">Sem dados neste mês.</span>';
+    if (centro) centro.innerHTML = '<span class="muted">Sem dados neste mês.</span>';
     return;
   }
 
   const porG = categoriasPorGrupo(porCategoria);
+  const corDe = (g, i) => g.cor || CHART_COLORS[i % CHART_COLORS.length];
 
-  // Uma entrada por fatia desenhada, a saber a que grupo pertence.
-  const fatias = [];
-  porGrupo.forEach((g, gi) => {
-    const base = g.cor || CHART_COLORS[gi % CHART_COLORS.length];
-    const cats = porG.get(g.id) || [];
-    const lista = cats.length ? cats : [{ name: g.name, value: g.value }];
+  // ─── Os dois estados de cada grupo ───
+  //
+  // Em repouso o gráfico tem UM arco por grupo: é isso que deixa o
+  // arredondamento das pontas e o intervalo entre fatias caírem onde
+  // devem. Ao apontar um grupo, só esse se parte nas suas categorias
+  // — e aí o mesmo arredondamento e o mesmo intervalo passam a
+  // desenhar as divisões lá dentro, de graça.
+  const total = porGrupo.reduce((soma, g) => soma + g.value, 0) || 1;
 
-    lista.forEach((c, ci) => {
-      fatias.push({
-        grupo: gi,
-        grupoNome: g.name,
-        nome: c.name,
-        valor: c.value,
-        base,
-        // A maior categoria fica com a cor pura e as seguintes vão
-        // clareando — a ordem de leitura acompanha a do tamanho.
-        tom: clarear(base, lista.length > 1 ? (ci / lista.length) * 0.55 : 0),
-      });
-    });
+  // Fatias angulares de cada grupo, para saber qual está sob o rato
+  // sem depender do índice do arco. O índice muda quando um grupo se
+  // parte; o ângulo que ele ocupa não muda nunca, e é por isso que a
+  // deteção é feita assim.
+  const limites = [];
+  let acumulado = 0;
+  porGrupo.forEach(g => {
+    const de = acumulado / total;
+    acumulado += g.value;
+    limites.push({ de, ate: acumulado / total });
   });
 
-  let apontado = -1;   // índice do grupo sob o rato, ou -1
+  const arcosDe = (apontado) => {
+    const out = [];
+    porGrupo.forEach((g, gi) => {
+      const base = corDe(g, gi);
+      const cats = porG.get(g.id) || [];
 
-  const fundos = () => fatias.map(f => (apontado === f.grupo ? f.tom : f.base));
-  const saltos = () => fatias.map(f => (apontado === f.grupo ? 12 : 0));
-  // A borda só aparece no grupo apontado: é o que separa as
-  // categorias umas das outras. Em repouso seria uma teia de linhas
-  // a cortar fatias que se querem inteiras.
-  const bordas = () => fatias.map(f => (apontado === f.grupo ? 2 : 0));
+      if (gi !== apontado || cats.length < 2) {
+        out.push({ grupo: gi, nome: g.name, valor: g.value, cor: base });
+        return;
+      }
+      cats.forEach((c, ci) => {
+        out.push({
+          grupo: gi,
+          nome: c.name,
+          valor: c.value,
+          // A maior fica com a cor pura e as seguintes vão clareando:
+          // a ordem de leitura acompanha a do tamanho.
+          cor: clarear(base, (ci / cats.length) * 0.55),
+        });
+      });
+    });
+    return out;
+  };
+
+  let apontado = -1;
+  let arcos = arcosDe(-1);
+
+  const escrever = (gi) => {
+    if (!centro) return;
+    const g = gi >= 0 ? porGrupo[gi] : null;
+    const valor = g ? g.value : totalExpense;
+    const pcent = totalExpense ? ((valor / totalExpense) * 100).toFixed(0) : 0;
+    centro.innerHTML = `
+      <span class="donut-nome">${esc(g ? g.name : "Despesas do mês")}</span>
+      <span class="donut-valor">${fmt(valor)}</span>
+      ${g ? `<span class="donut-pct">${pcent}% do mês</span>` : ""}`;
+  };
+  escrever(-1);
+
+  const aplicar = () => {
+    const d = graficos.grupos.data;
+    d.labels = arcos.map(a => a.nome);
+    d.datasets[0].data = arcos.map(a => a.valor);
+    d.datasets[0].backgroundColor = arcos.map(a => a.cor);
+    d.datasets[0].offset = arcos.map(a => (a.grupo === apontado ? 26 : 0));
+    // "none": sem animação. Com ela, cada passagem do rato recomeçava
+    // o desenho e o anel ficava a tremer.
+    graficos.grupos.update("none");
+  };
+
+  /** Que grupo está sob o rato, pelo ângulo e não pelo índice do arco. */
+  const grupoEm = (evt) => {
+    const meta = graficos.grupos.getDatasetMeta(0);
+    const arco = meta.data[0];
+    if (!arco) return -1;
+
+    const dx = evt.x - arco.x;
+    const dy = evt.y - arco.y;
+    const raio = Math.hypot(dx, dy);
+    // Fora do anel não há grupo nenhum apontado — nem no buraco do
+    // meio, onde está o texto.
+    if (raio < arco.innerRadius || raio > arco.outerRadius + 26) return -1;
+
+    // O donut começa ao cimo; o atan2 começa à direita.
+    const t = (((Math.atan2(dy, dx) + Math.PI / 2) % (2 * Math.PI)) + 2 * Math.PI)
+      % (2 * Math.PI) / (2 * Math.PI);
+    const i = limites.findIndex(l => t >= l.de && t < l.ate);
+    return i;
+  };
 
   graficos.grupos = new Chart(canvas, {
     type: "doughnut",
     data: {
-      labels: fatias.map(f => f.nome),
+      labels: arcos.map(a => a.nome),
       datasets: [{
-        data: fatias.map(f => f.valor),
-        backgroundColor: fundos(),
-        offset: saltos(),
-        borderWidth: bordas(),
-        borderColor: cores.surface,
+        data: arcos.map(a => a.valor),
+        backgroundColor: arcos.map(a => a.cor),
+        offset: arcos.map(() => 0),
+        borderWidth: 0,
+        borderRadius: 6,
+        spacing: 4,
         hoverBorderColor: cores.surface,
       }],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      cutout: "58%",
-      animation: { duration: 250 },
-      onHover: (evt, elementos, chart) => {
-        const alvo = elementos.length ? fatias[elementos[0].index].grupo : -1;
+      cutout: "72%",
+      animation: { duration: 400 },
+      onHover: (evt) => {
+        const alvo = grupoEm(evt);
         if (alvo === apontado) return;
         apontado = alvo;
-        const d = chart.data.datasets[0];
-        d.backgroundColor = fundos();
-        d.offset = saltos();
-        d.borderWidth = bordas();
-        // "none": sem animação, senão cada passagem do rato
-        // recomeçava o desenho todo.
-        chart.update("none");
+        arcos = arcosDe(alvo);
+        escrever(alvo);
+        aplicar();
       },
       plugins: {
         legend: { display: false },
+        // O centro diz o grupo; o tooltip diz a categoria sob o rato.
+        // São coisas diferentes e não se repetem.
         tooltip: {
+          displayColors: false,
           callbacks: {
-            title: ctx => fatias[ctx[0].dataIndex].grupoNome,
+            title: ctx => porGrupo[arcos[ctx[0].dataIndex].grupo].name,
             label: ctx => {
               const pct = totalExpense ? ((ctx.parsed / totalExpense) * 100).toFixed(1) : 0;
               return ` ${ctx.label}: ${fmt(ctx.parsed)} (${pct}%)`;
@@ -228,18 +290,47 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
     },
   });
 
-  // Legenda só com os grupos: com 59 categorias passaria das vinte
-  // etiquetas e empurrava o gráfico para fora do cartão. As
-  // categorias dizem-se no tooltip e estão todas na lista por baixo.
-  if (!legend) return;
-  legend.innerHTML = porGrupo.map((g, i) => {
-    const pct = totalExpense ? ((g.value / totalExpense) * 100).toFixed(0) : 0;
-    const cor = g.cor || CHART_COLORS[i % CHART_COLORS.length];
-    return `<span class="legend-item">
-      <span class="legend-dot" style="background:${cor}"></span>
-      ${esc(g.name)} <b>${pct}%</b>
-    </span>`;
-  }).join("");
+  // Sair do gráfico devolve tudo ao estado de repouso: sem isto, o
+  // último grupo apontado ficava aceso depois de o rato sair.
+  canvas.onmouseleave = () => {
+    if (apontado === -1) return;
+    apontado = -1;
+    arcos = arcosDe(-1);
+    escrever(-1);
+    aplicar();
+  };
+}
+
+/**
+ * Abre ou fecha todos os niveis da lista de uma vez.
+ *
+ * O botao diz o que vai fazer, nao o estado em que esta: com algum
+ * fechado, abre tudo; so quando esta tudo aberto e que passa a fechar.
+ */
+function ligarExpandirTudo() {
+  const btn = document.getElementById("btn-expandir-tudo");
+  const lista = document.getElementById("top-groups");
+  if (!btn || !lista) return;
+
+  const todos = () => [...lista.querySelectorAll("details")];
+
+  const sincronizar = () => {
+    const d = todos();
+    btn.textContent = d.length && d.every(x => x.open) ? "Fechar tudo" : "Expandir tudo";
+    btn.classList.toggle("hidden", d.length === 0);
+  };
+
+  btn.onclick = () => {
+    const d = todos();
+    const abrir = !(d.length && d.every(x => x.open));
+    d.forEach(x => { x.open = abrir; });
+    sincronizar();
+  };
+
+  // Um clique num grupo qualquer pode deixar tudo aberto ou fechado:
+  // o rotulo tem de acompanhar. O toggle nao borbulha, dai o true.
+  lista.addEventListener("toggle", sincronizar, true);
+  sincronizar();
 }
 
 function renderDonut(chave, canvasId, legendId, data, totalExpense) {
