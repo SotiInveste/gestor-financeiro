@@ -846,6 +846,23 @@ body {
 .pago-toggle input { cursor: pointer; }
 .pago-toggle input:disabled { cursor: default; }
 
+/* ═══ Subtotais por categoria ═══
+   Mais leves do que o total: fundo do cartão em vez do fundo da
+   página, risco fino entre eles, nome da categoria tal como se
+   escreve (o total é que está em maiúsculas). O risco grosso fica
+   para o total, que é o que fecha o quadro. */
+.resumo-table tfoot tr.resumo-sub td {
+  background: var(--surface); border-top: 1px solid var(--border);
+}
+.resumo-table tfoot tr.resumo-sub:first-child td {
+  border-top: 2px solid var(--border);
+}
+.resumo-table tfoot tr.resumo-sub .foot-label {
+  text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600;
+  color: var(--text);
+}
+.resumo-table tfoot tr.resumo-sub .foot-value { font-size: 12px; font-weight: 600; }
+
 .resumo-table tfoot tr.pago td { background: var(--tint-green-bg); }
 .resumo-table tfoot tr.pago .pago-toggle { color: var(--green); }
 

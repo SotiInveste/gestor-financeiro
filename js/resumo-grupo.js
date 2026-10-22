@@ -100,6 +100,31 @@ export function renderResumoGrupo() {
 
   const total = movimentos.reduce((s, t) => s + Number(t.amount), 0);
   const n = movimentos.length;
+
+  // ─── Subtotais por categoria ───
+  //
+  // A lista fica por data, que é como se confere um extracto; os
+  // subtotais vão todos juntos ao fundo, antes do total. Partir a
+  // lista por categoria para os intercalar obrigava a desordenar as
+  // datas, e perdia-se a leitura cronológica.
+  //
+  // Com uma categoria só não há subtotal nenhum a fazer: seria a
+  // mesma linha do total, escrita duas vezes.
+  const porCategoria = new Map();
+  movimentos.forEach(t => {
+    const atual = porCategoria.get(t.category_id) || { soma: 0, n: 0 };
+    atual.soma += Number(t.amount);
+    atual.n += 1;
+    porCategoria.set(t.category_id, atual);
+  });
+
+  const subtotais = porCategoria.size > 1
+    ? [...porCategoria.entries()]
+        .map(([id, v]) => ({ nome: nomes.get(id) || "—", ...v }))
+        // Pelo peso, e não por ordem alfabética: o que mais pesou
+        // fica à cabeça, que é a pergunta que se faz a um subtotal.
+        .sort((a, b) => Math.abs(b.soma) - Math.abs(a.soma))
+    : [];
   const titulo = `${grupo.emoji || ""} ${grupo.name}`.trim();
 
   // No modo anual não há visto: o quadro mostra o total do ano e um
@@ -142,7 +167,15 @@ export function renderResumoGrupo() {
             </tr>`).join("")}
         </tbody>
         <tfoot>
-          <tr class="${pago ? "pago" : ""}">
+          ${subtotais.map(c => `
+            <tr class="resumo-sub">
+              <td colspan="4" class="foot-label">
+                ${esc(c.nome)}<span class="muted"> · ${c.n} movimento${c.n === 1 ? "" : "s"}</span>
+              </td>
+              <td class="foot-value ${c.soma < 0 ? "red" : "green"}">${fmt(c.soma)}</td>
+              <td></td>
+            </tr>`).join("")}
+          <tr class="resumo-total ${pago ? "pago" : ""}">
             <td colspan="4" class="foot-label">
               Total<span class="muted"> · ${n} movimento${n === 1 ? "" : "s"}</span>
             </td>
