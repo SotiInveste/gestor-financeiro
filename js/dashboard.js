@@ -127,6 +127,26 @@ const CRESCIMENTO = 14;
 const INTERVALO = 2;
 
 /**
+ * O mesmo, mas entre as categorias dentro do grupo apontado.
+ *
+ * Metade: as categorias de um grupo pertencem umas as outras e o
+ * grupo tem de continuar a ler-se como um bloco só, dividido por
+ * dentro. Com o mesmo intervalo dos grupos, as categorias pequenas
+ * ficavam a flutuar soltas, como migalhas ao lado da fatia grande.
+ */
+const INTERVALO_CAT = 1;
+
+/**
+ * Arredondamento das pontas de cada fatia, em pixéis.
+ *
+ * As divisões internas não são arredondadas: um corte a direito
+ * parece um corte; um corte arredondado dos dois lados parece outra
+ * fatia separada, que é precisamente o que não queremos dentro do
+ * grupo.
+ */
+const CANTO = 4;
+
+/**
  * Esbate uma cor, para os grupos que não estão a ser apontados.
  *
  * Com um grupo em destaque, os outros recuam em vez de desaparecer:
@@ -144,31 +164,43 @@ function esbater(cor) {
 }
 
 /**
- * Engorda as fatias do grupo apontado.
+ * Afasta e engorda o grupo apontado.
  *
- * O Chart.js não tem raio por fatia — o controlador recalcula-o a
- * cada desenho. Por isso o aumento é feito mesmo antes de pintar e
- * desfeito logo a seguir: assim sobrevive a cada repintura em vez
- * de ser apagado por ela.
+ * O salto NÃO é o offset do Chart.js: esse empurra cada fatia na
+ * direcção do meio dela própria, e um grupo aberto em categorias
+ * ficava desfeito — a fatia grande ia para um lado, as pequenas para
+ * outro, e o grupo deixava de se ler como um bloco. Aqui todas as
+ * fatias do grupo são deslocadas pelo MESMO vector, o do meio do
+ * grupo, e por isso continuam encostadas umas às outras.
+ *
+ * O raio não existe por fatia — o controlador recalcula-o a cada
+ * desenho — por isso tanto o deslocamento como o aumento são feitos
+ * mesmo antes de pintar e desfeitos logo a seguir: assim sobrevivem
+ * a cada repintura em vez de serem apagados por ela.
  */
 const crescerApontado = {
   id: "crescerApontado",
   beforeDatasetDraw(chart) {
     const arcos = chart.$arcos;
     const ap = chart.$apontado;
-    if (!arcos || ap == null || ap < 0) return;
+    const salto = chart.$salto;
+    if (!arcos || ap == null || ap < 0 || !salto) return;
     chart.getDatasetMeta(0).data.forEach((arc, i) => {
       if (arcos[i] && arcos[i].grupo === ap) {
-        arc.$raioBase = arc.outerRadius;
+        arc.$base = { x: arc.x, y: arc.y, raio: arc.outerRadius };
+        arc.x += salto.dx;
+        arc.y += salto.dy;
         arc.outerRadius += CRESCIMENTO;
       }
     });
   },
   afterDatasetDraw(chart) {
     chart.getDatasetMeta(0).data.forEach(arc => {
-      if (arc.$raioBase != null) {
-        arc.outerRadius = arc.$raioBase;
-        arc.$raioBase = null;
+      if (arc.$base) {
+        arc.x = arc.$base.x;
+        arc.y = arc.$base.y;
+        arc.outerRadius = arc.$base.raio;
+        arc.$base = null;
       }
     });
   },
@@ -262,6 +294,20 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
     limites.push({ de, ate: acumulado / total });
   });
 
+  /**
+   * Para onde salta o grupo: o meio do angulo que ele ocupa.
+   *
+   * É o ângulo do GRUPO, e não o de cada fatia — é isso que mantém as
+   * categorias juntas quando ele se abre.
+   */
+  const vectorDoGrupo = (gi) => {
+    if (gi < 0) return null;
+    const meio = (limites[gi].de + limites[gi].ate) / 2;
+    // O donut começa ao cimo; o cosseno começa à direita.
+    const ang = meio * 2 * Math.PI - Math.PI / 2;
+    return { dx: SALTO * Math.cos(ang), dy: SALTO * Math.sin(ang) };
+  };
+
   const arcosDe = (apontado) => {
     const out = [];
     porGrupo.forEach((g, gi) => {
@@ -277,6 +323,11 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
           grupo: gi,
           nome: c.name,
           valor: c.value,
+          // Divisão interna: tudo menos a primeira e a última, que
+          // são as pontas do grupo e dão para fora dele.
+          dentro: true,
+          primeira: ci === 0,
+          ultima: ci === cats.length - 1,
           // A maior fica com a cor pura e as seguintes vão clareando:
           // a ordem de leitura acompanha a do tamanho.
           cor: clarear(base, (ci / cats.length) * 0.55),
@@ -309,16 +360,33 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
   const corFinal = a =>
     (apontado < 0 || a.grupo === apontado ? a.cor : esbater(a.cor));
 
+  // Contorno mais fino dentro do grupo aberto do que entre grupos.
+  const contornoDe = a => (a.dentro ? INTERVALO_CAT : INTERVALO);
+
+  // E só as pontas do grupo ficam arredondadas. O Chart.js aceita um
+  // objecto por fatia: arredonda o lado que se quiser.
+  const cantoDe = (a) => {
+    if (!a.dentro) return CANTO;
+    return {
+      outerStart: a.primeira ? CANTO : 0,
+      outerEnd: a.ultima ? CANTO : 0,
+      innerStart: a.primeira ? CANTO : 0,
+      innerEnd: a.ultima ? CANTO : 0,
+    };
+  };
+
   const aplicar = () => {
     const d = graficos.grupos.data;
     d.labels = arcos.map(a => a.nome);
     d.datasets[0].data = arcos.map(a => a.valor);
     d.datasets[0].backgroundColor = arcos.map(corFinal);
-    d.datasets[0].offset = arcos.map(a => (a.grupo === apontado ? SALTO : 0));
+    d.datasets[0].borderWidth = arcos.map(contornoDe);
+    d.datasets[0].borderRadius = arcos.map(cantoDe);
     // Os plugins de desenho leem daqui: é o que lhes diz qual o grupo
     // a engordar e a que arco corresponde cada fatia.
     graficos.grupos.$arcos = arcos;
     graficos.grupos.$apontado = apontado;
+    graficos.grupos.$salto = vectorDoGrupo(apontado);
     // "none": sem animação. Com ela, cada passagem do rato recomeçava
     // o desenho e o anel ficava a tremer.
     graficos.grupos.update("none");
@@ -364,21 +432,16 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
       datasets: [{
         data: arcos.map(a => a.valor),
         backgroundColor: arcos.map(a => a.cor),
-        offset: arcos.map(() => 0),
         // O intervalo entre fatias é um CONTORNO da cor do cartão, e
         // não o spacing do Chart.js. Medido: o spacing não afasta os
         // arcos — os ângulos ficam colados, e o efeito é pintado no
         // desenho e encolhido nas fatias pequenas para elas não
         // desaparecerem. Daí umas ficarem com mais espaço que outras.
         // Um contorno é uma espessura em pixéis: igual em todas.
-        borderWidth: INTERVALO,
+        borderWidth: arcos.map(contornoDe),
         borderColor: cores.surface,
         borderAlign: "inner",
-        // Cantos menos redondos do que o intervalo: com 6 px de
-        // arredondamento, uma fatia pequena ficava quase toda
-        // arredondada e o espaço à volta dela parecia maior que os
-        // outros. Com 4, o intervalo lê-se igual em todas.
-        borderRadius: 4,
+        borderRadius: arcos.map(cantoDe),
         spacing: 0,
         hoverBorderColor: cores.surface,
       }],
@@ -414,6 +477,7 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
 
   graficos.grupos.$arcos = arcos;
   graficos.grupos.$apontado = -1;
+  graficos.grupos.$salto = null;
 
   // Sair do gráfico devolve tudo ao estado de repouso: sem isto, o
   // último grupo apontado ficava aceso depois de o rato sair.
