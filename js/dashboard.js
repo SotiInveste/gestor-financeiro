@@ -115,8 +115,11 @@ const SALTO = 26;
 /** E quanto engorda, além de saltar. */
 const CRESCIMENTO = 14;
 
-/** Intervalo entre fatias. Igual para todas, apontadas ou não. */
-const INTERVALO = 8;
+/**
+ * Intervalo entre fatias, em pixéis. É metade disto de cada lado,
+ * por ser desenhado como contorno à volta de cada arco.
+ */
+const INTERVALO = 5;
 
 /**
  * Esbate uma cor, para os grupos que não estão a ser apontados.
@@ -357,13 +360,21 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
         data: arcos.map(a => a.valor),
         backgroundColor: arcos.map(a => a.cor),
         offset: arcos.map(() => 0),
-        borderWidth: 0,
+        // O intervalo entre fatias é um CONTORNO da cor do cartão, e
+        // não o spacing do Chart.js. Medido: o spacing não afasta os
+        // arcos — os ângulos ficam colados, e o efeito é pintado no
+        // desenho e encolhido nas fatias pequenas para elas não
+        // desaparecerem. Daí umas ficarem com mais espaço que outras.
+        // Um contorno é uma espessura em pixéis: igual em todas.
+        borderWidth: INTERVALO,
+        borderColor: cores.surface,
+        borderAlign: "inner",
         // Cantos menos redondos do que o intervalo: com 6 px de
         // arredondamento, uma fatia pequena ficava quase toda
         // arredondada e o espaço à volta dela parecia maior que os
         // outros. Com 4, o intervalo lê-se igual em todas.
         borderRadius: 4,
-        spacing: INTERVALO,
+        spacing: 0,
         hoverBorderColor: cores.surface,
       }],
     },
