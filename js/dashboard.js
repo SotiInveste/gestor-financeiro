@@ -116,10 +116,15 @@ const SALTO = 26;
 const CRESCIMENTO = 14;
 
 /**
- * Intervalo entre fatias, em pixéis. É metade disto de cada lado,
- * por ser desenhado como contorno à volta de cada arco.
+ * Espessura do contorno que separa as fatias, em pixéis. O espaço
+ * entre duas vizinhas é o dobro — cada uma recua o seu contorno.
+ *
+ * Dois, e não mais, por causa das fatias pequenas: a este raio, um
+ * grupo com 1% do mês mede cerca de 10 px de arco. Com 5 de
+ * contorno de cada lado sobrava-lhe meio pixel e desaparecia; com 2
+ * sobram-lhe 6 e continua a ver-se.
  */
-const INTERVALO = 5;
+const INTERVALO = 2;
 
 /**
  * Esbate uma cor, para os grupos que não estão a ser apontados.
