@@ -112,6 +112,60 @@ function renderDestino(totals) {
 /** Quanto a fatia apontada salta para fora do anel, em pixéis. */
 const SALTO = 26;
 
+/** E quanto engorda, além de saltar. */
+const CRESCIMENTO = 14;
+
+/** Intervalo entre fatias. Igual para todas, apontadas ou não. */
+const INTERVALO = 8;
+
+/**
+ * Esbate uma cor, para os grupos que não estão a ser apontados.
+ *
+ * Com um grupo em destaque, os outros recuam em vez de desaparecer:
+ * continuam a dar a noção das proporções, mas deixam de competir
+ * pela atenção.
+ */
+function esbater(cor) {
+  const hex = cor.match(/^#([0-9a-f]{6})$/i);
+  if (hex) {
+    const n = parseInt(hex[1], 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, .32)`;
+  }
+  const rgb = cor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  return rgb ? `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, .32)` : cor;
+}
+
+/**
+ * Engorda as fatias do grupo apontado.
+ *
+ * O Chart.js não tem raio por fatia — o controlador recalcula-o a
+ * cada desenho. Por isso o aumento é feito mesmo antes de pintar e
+ * desfeito logo a seguir: assim sobrevive a cada repintura em vez
+ * de ser apagado por ela.
+ */
+const crescerApontado = {
+  id: "crescerApontado",
+  beforeDatasetDraw(chart) {
+    const arcos = chart.$arcos;
+    const ap = chart.$apontado;
+    if (!arcos || ap == null || ap < 0) return;
+    chart.getDatasetMeta(0).data.forEach((arc, i) => {
+      if (arcos[i] && arcos[i].grupo === ap) {
+        arc.$raioBase = arc.outerRadius;
+        arc.outerRadius += CRESCIMENTO;
+      }
+    });
+  },
+  afterDatasetDraw(chart) {
+    chart.getDatasetMeta(0).data.forEach(arc => {
+      if (arc.$raioBase != null) {
+        arc.outerRadius = arc.$raioBase;
+        arc.$raioBase = null;
+      }
+    });
+  },
+};
+
 /**
  * Sombra por baixo das fatias.
  *
@@ -244,12 +298,19 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
   };
   escrever(-1);
 
+  const corFinal = a =>
+    (apontado < 0 || a.grupo === apontado ? a.cor : esbater(a.cor));
+
   const aplicar = () => {
     const d = graficos.grupos.data;
     d.labels = arcos.map(a => a.nome);
     d.datasets[0].data = arcos.map(a => a.valor);
-    d.datasets[0].backgroundColor = arcos.map(a => a.cor);
+    d.datasets[0].backgroundColor = arcos.map(corFinal);
     d.datasets[0].offset = arcos.map(a => (a.grupo === apontado ? SALTO : 0));
+    // Os plugins de desenho leem daqui: é o que lhes diz qual o grupo
+    // a engordar e a que arco corresponde cada fatia.
+    graficos.grupos.$arcos = arcos;
+    graficos.grupos.$apontado = apontado;
     // "none": sem animação. Com ela, cada passagem do rato recomeçava
     // o desenho e o anel ficava a tremer.
     graficos.grupos.update("none");
@@ -266,7 +327,7 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
     const raio = Math.hypot(dx, dy);
     // Fora do anel não há grupo nenhum apontado — nem no buraco do
     // meio, onde está o texto.
-    if (raio < arco.innerRadius || raio > arco.outerRadius + SALTO) return -1;
+    if (raio < arco.innerRadius || raio > arco.outerRadius + SALTO + CRESCIMENTO) return -1;
 
     // O donut começa ao cimo; o atan2 começa à direita.
     const t = (((Math.atan2(dy, dx) + Math.PI / 2) % (2 * Math.PI)) + 2 * Math.PI)
@@ -281,12 +342,15 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
   // solavanco. Fixo, fica do mesmo tamanho nos dois estados.
   const raioDisponivel = () => {
     const lado = Math.min(canvas.clientWidth || 300, canvas.clientHeight || 300);
-    return Math.max(50, lado / 2 - SALTO - 6);
+    // Reserva o salto E o crescimento: as duas coisas acontecem ao
+    // mesmo tempo na fatia apontada, e sem esta margem ela sairia
+    // pela borda do cartão.
+    return Math.max(50, lado / 2 - SALTO - CRESCIMENTO - 4);
   };
 
   graficos.grupos = new Chart(canvas, {
     type: "doughnut",
-    plugins: [sombraDasFatias],
+    plugins: [sombraDasFatias, crescerApontado],
     data: {
       labels: arcos.map(a => a.nome),
       datasets: [{
@@ -294,8 +358,12 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
         backgroundColor: arcos.map(a => a.cor),
         offset: arcos.map(() => 0),
         borderWidth: 0,
-        borderRadius: 6,
-        spacing: 4,
+        // Cantos menos redondos do que o intervalo: com 6 px de
+        // arredondamento, uma fatia pequena ficava quase toda
+        // arredondada e o espaço à volta dela parecia maior que os
+        // outros. Com 4, o intervalo lê-se igual em todas.
+        borderRadius: 4,
+        spacing: INTERVALO,
         hoverBorderColor: cores.surface,
       }],
     },
@@ -327,6 +395,9 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
       },
     },
   });
+
+  graficos.grupos.$arcos = arcos;
+  graficos.grupos.$apontado = -1;
 
   // Sair do gráfico devolve tudo ao estado de repouso: sem isto, o
   // último grupo apontado ficava aceso depois de o rato sair.
