@@ -109,11 +109,26 @@ function renderDestino(totals) {
  * Donut de despesas. Serve categorias e grupos — só mudam os dados e
  * os elementos onde desenha.
  */
-/** Quanto a fatia apontada salta para fora do anel, em pixéis. */
-const SALTO = 26;
+/**
+ * Quanto o grupo apontado salta para fora do anel, em pixéis.
+ *
+ * Doze, e não mais: o salto afasta o grupo do sítio onde o rato está.
+ * Com um salto grande, apontar o meio do anel fazia a fatia fugir
+ * debaixo do cursor — ficava a mostrar-se um valor com o rato em
+ * cima de nada. Agora o grupo cresce para dentro o mesmo que salta
+ * (ver crescerApontado), e por isso continua a cobrir o ponto onde
+ * foi apanhado.
+ */
+const SALTO = 12;
 
-/** E quanto engorda, além de saltar. */
-const CRESCIMENTO = 14;
+/**
+ * E quanto engorda para fora, além de saltar.
+ *
+ * Nunca menos do que o salto: nas pontas do grupo o deslocamento é
+ * quase todo de lado, e o que lá estava afasta-se do centro até
+ * SALTO pixéis. É esse o espaço que o crescimento tem de cobrir.
+ */
+const CRESCIMENTO = 16;
 
 /**
  * Espessura do contorno que separa as fatias, em pixéis. O espaço
@@ -187,10 +202,14 @@ const crescerApontado = {
     if (!arcos || ap == null || ap < 0 || !salto) return;
     chart.getDatasetMeta(0).data.forEach((arc, i) => {
       if (arcos[i] && arcos[i].grupo === ap) {
-        arc.$base = { x: arc.x, y: arc.y, raio: arc.outerRadius };
+        arc.$base = { x: arc.x, y: arc.y, fora: arc.outerRadius, dentro: arc.innerRadius };
         arc.x += salto.dx;
         arc.y += salto.dy;
         arc.outerRadius += CRESCIMENTO;
+        // Também para dentro, e exactamente o que salta: é isto que
+        // mantém o ponto onde o rato está coberto pelo grupo depois
+        // de ele saltar.
+        arc.innerRadius -= SALTO;
       }
     });
   },
@@ -199,7 +218,8 @@ const crescerApontado = {
       if (arc.$base) {
         arc.x = arc.$base.x;
         arc.y = arc.$base.y;
-        arc.outerRadius = arc.$base.raio;
+        arc.outerRadius = arc.$base.fora;
+        arc.innerRadius = arc.$base.dentro;
         arc.$base = null;
       }
     });
@@ -407,22 +427,27 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
   };
 
   /**
-   * Onde está o rato no anel, de 0 a 1 a contar do cimo, ou -1 fora.
+   * Onde está o rato, medido a partir de um centro à escolha.
+   *
+   * O centro importa: o grupo apontado é desenhado deslocado, e
+   * medir a posição do rato a partir do centro do anel dava o ângulo
+   * do sítio onde a fatia ESTARIA se não tivesse saltado. Era isso
+   * que fazia o centro mostrar a fatia do lado.
    *
    * É pelo ângulo, e não pelo arco que o Chart.js diz estar sob o
    * rato: o índice do arco muda quando um grupo se abre em
    * categorias, o ângulo não.
    */
-  const anguloEm = (evt) => {
+  const posicaoEm = (evt, cx, cy, folgaFora, folgaDentro) => {
     const arco = graficos.grupos.getDatasetMeta(0).data[0];
     if (!arco) return -1;
 
-    const dx = evt.x - arco.x;
-    const dy = evt.y - arco.y;
+    const dx = evt.x - cx;
+    const dy = evt.y - cy;
     const raio = Math.hypot(dx, dy);
     // Fora do anel não há nada apontado — nem no buraco do meio, onde
     // está o texto.
-    if (raio < arco.innerRadius || raio > arco.outerRadius + SALTO + CRESCIMENTO) return -1;
+    if (raio < arco.innerRadius - folgaDentro || raio > arco.outerRadius + folgaFora) return -1;
 
     // O donut começa ao cimo; o atan2 começa à direita.
     return (((Math.atan2(dy, dx) + Math.PI / 2) % (2 * Math.PI)) + 2 * Math.PI)
@@ -431,6 +456,34 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
 
   /** Que grupo ocupa aquele ângulo. */
   const grupoEm = t => (t < 0 ? -1 : limites.findIndex(l => t >= l.de && t < l.ate));
+
+  /**
+   * O que está debaixo do rato, no sítio onde está DESENHADO.
+   *
+   * Duas medições, porque o anel não está todo no mesmo sítio: o
+   * grupo apontado anda deslocado e cresceu, os outros estão em
+   * repouso. Primeiro o deslocado, a partir do centro para onde ele
+   * saltou; depois os restantes, a partir do centro do anel.
+   *
+   * O grupo apontado conta nas duas: é o que evita o tremer na
+   * fronteira. Se só contasse na posição deslocada, bastava um pixel
+   * fora para ele recuar, voltar a ficar debaixo do rato, saltar
+   * outra vez — e assim sem fim.
+   */
+  const alvoEm = (evt) => {
+    const arco = graficos.grupos.getDatasetMeta(0).data[0];
+    if (!arco) return { grupo: -1, t: -1 };
+
+    const salto = graficos.grupos.$salto;
+    if (apontado >= 0 && salto) {
+      const t = posicaoEm(evt, arco.x + salto.dx, arco.y + salto.dy, CRESCIMENTO, SALTO);
+      const l = limites[apontado];
+      if (t >= 0 && t >= l.de && t < l.ate) return { grupo: apontado, t };
+    }
+
+    const t = posicaoEm(evt, arco.x, arco.y, 0, 0);
+    return { grupo: grupoEm(t), t };
+  };
 
   /**
    * Que fatia desenhada ocupa aquele ângulo.
@@ -496,13 +549,18 @@ function renderDonutGrupos(porGrupo, porCategoria, totalExpense) {
         chart.options.radius = raioDisponivel();
       },
       onHover: (evt) => {
-        const t = anguloEm(evt);
-        const alvo = grupoEm(t);
+        const alvoAgora = alvoEm(evt);
+        const alvo = alvoAgora.grupo;
+        let t = alvoAgora.t;
 
         if (alvo !== apontado) {
           apontado = alvo;
           arcos = arcosDe(alvo);
           aplicar();
+          // O grupo acabou de saltar: o ângulo foi medido no sítio
+          // onde ele estava antes, e já não é lá que está. Medir
+          // outra vez, agora que está desenhado no sítio novo.
+          t = alvoEm(evt).t;
         }
 
         // Dentro do grupo aberto, o centro segue a categoria sob o
