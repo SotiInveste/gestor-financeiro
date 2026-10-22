@@ -7,7 +7,7 @@ import {
   expensesByCategory, expensesByGroup, expenseMovementsByCategory,
   yearlySeries, ANUAL,
 } from "./state.js";
-import { fmt, MONTHS_SHORT, CHART_COLORS, esc, shortDate } from "./utils.js";
+import { fmt, MONTHS, MONTHS_SHORT, CHART_COLORS, esc, shortDate } from "./utils.js";
 import { themeColors } from "./theme.js";
 
 // Guardados para poderem ser destruídos antes de repintar: o Chart.js
@@ -65,7 +65,7 @@ export function renderDashboard() {
     if (!isEmpty) {
       renderGruposComCategorias(
         expensesByGroup(list), expensesByCategory(list), totals.expense, list,
-        "top-groups-ano",
+        "top-groups-ano", true,
       );
       ligarExpandirTudo("btn-expandir-tudo-ano", "top-groups-ano");
     }
@@ -740,13 +740,12 @@ function categoriasPorGrupo(porCategoria) {
  * A descrição é a do banco, a mesma que aparece na página de
  * Movimentos — é por ela que se reconhece a linha.
  */
-function categoriaHTML(c, movimentos, pct) {
-  const n = movimentos.length;
-
+/** Uma linha de movimento da lista. */
+function movimentoHTML(t) {
   // A nota, quando existe, fica numa segunda linha por baixo da
   // descrição: lado a lado as duas competiam pelo mesmo espaço e
   // ambas ficavam cortadas.
-  const linhas = movimentos.map(t => `
+  return `
     <div class="top-row mov-dash">
       <span class="mov-data">${shortDate(t.value_date)}</span>
       <span class="name">
@@ -754,7 +753,50 @@ function categoriaHTML(c, movimentos, pct) {
         ${t.note ? `<span class="mov-nota">${esc(t.note)}</span>` : ""}
       </span>
       <span class="val">${fmt(Math.abs(Number(t.amount)))}</span>
-    </div>`).join("");
+    </div>`;
+}
+
+/**
+ * Os movimentos de uma categoria ao longo do ano, por data e
+ * separados por mês.
+ *
+ * No ano a lista de uma categoria chega facilmente a algumas dezenas
+ * de linhas, e por ordem de valor não se percebe quando é que o
+ * dinheiro saiu. Por data e com o mês à cabeça — com o que esse mês
+ * levou — lê-se como um extracto.
+ */
+function porMesHTML(movimentos) {
+  const mes = t => Number(String(t.value_date).slice(5, 7)) - 1;
+
+  const ordenados = [...movimentos]
+    .sort((a, b) => String(a.value_date).localeCompare(String(b.value_date)));
+
+  const blocos = [];
+  ordenados.forEach(t => {
+    const m = mes(t);
+    if (!blocos.length || blocos[blocos.length - 1].mes !== m) {
+      blocos.push({ mes: m, movs: [] });
+    }
+    blocos[blocos.length - 1].movs.push(t);
+  });
+
+  return blocos.map(b => {
+    const soma = b.movs.reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+    return `
+      <div class="mes-dash">
+        <span class="mes-nome">${MONTHS[b.mes] || ""}</span>
+        <span class="mes-conta">${b.movs.length} mov.</span>
+        <span class="mes-total">${fmt(soma)}</span>
+      </div>
+      ${b.movs.map(movimentoHTML).join("")}`;
+  }).join("");
+}
+
+function categoriaHTML(c, movimentos, pct, porMes) {
+  const n = movimentos.length;
+  const linhas = porMes
+    ? porMesHTML(movimentos)
+    : movimentos.map(movimentoHTML).join("");
 
   return `
     <details class="cat-dash">
@@ -789,7 +831,7 @@ function categoriaHTML(c, movimentos, pct) {
  * O <details> fecha-se sozinho a cada repintura, que é o que se
  * quer: o painel abre pela vista geral e abre-se só o que interessa.
  */
-function renderGruposComCategorias(porGrupo, porCategoria, totalExpense, list, idLista) {
+function renderGruposComCategorias(porGrupo, porCategoria, totalExpense, list, idLista, porMes) {
   const container = document.getElementById(idLista);
   if (!container) return;
 
@@ -812,7 +854,7 @@ function renderGruposComCategorias(porGrupo, porCategoria, totalExpense, list, i
     const cats = porG.get(g.id) || [];
 
     const linhas = cats.length
-      ? cats.map(c => categoriaHTML(c, movsDe.get(c.id) || [], pct)).join("")
+      ? cats.map(c => categoriaHTML(c, movsDe.get(c.id) || [], pct, porMes)).join("")
       : '<span class="muted">Sem categorias.</span>';
 
     return `
