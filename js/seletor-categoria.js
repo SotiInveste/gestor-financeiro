@@ -141,8 +141,16 @@ function fechar(categoryId) {
   if (categoryId) {
     const on = document.getElementById("cat-sheet-regra-on");
     const chave = document.getElementById("cat-sheet-regra-chave");
+    const nota = document.getElementById("cat-sheet-regra-nota");
     const k = chave ? chave.value.trim().toUpperCase() : "";
-    resultado = { categoryId, regra: on && on.checked && k.length >= 3 ? k : null };
+    const regra = on && on.checked && k.length >= 3 ? k : null;
+    resultado = {
+      categoryId,
+      regra,
+      // undefined quando a nota não foi mexida: a regra fica com a que
+      // tinha. Uma nota apagada de propósito chega como "".
+      nota: regra && nota && nota.dataset.mexida === "1" ? nota.value.trim() : undefined,
+    };
   }
 
   const r = aResolver;
@@ -167,37 +175,60 @@ function prepararRegra(descricao, pendente, idActual) {
   const on = document.getElementById("cat-sheet-regra-on");
   const chave = document.getElementById("cat-sheet-regra-chave");
   const info = document.getElementById("cat-sheet-regra-info");
+  const nota = document.getElementById("cat-sheet-regra-nota");
+  const rotulo = document.getElementById("cat-sheet-regra-rotulo");
   if (!linha || !on || !chave || !info) return;
 
-  const proposta = palavraChave(descricao);
+  // Se já há uma regra tua que apanha este movimento, é essa que se
+  // propõe — para lhe mudar a categoria ou a nota. Propor uma palavra
+  // nova criava uma segunda regra para o mesmo comerciante.
+  const desc = String(descricao || "").toUpperCase();
+  const existenteJa = state.rules.find(r =>
+    r.keyword && desc.includes(String(r.keyword).toUpperCase()));
+  const proposta = existenteJa ? String(existenteJa.keyword).toUpperCase()
+                               : palavraChave(descricao);
   if (!proposta || proposta.length < 3) {
     linha.classList.add("hidden");
     on.checked = false;
     return;
   }
 
+  const regraDe = k => state.rules.find(r =>
+    String(r.keyword).toUpperCase() === String(k).trim().toUpperCase());
+
+  // Com regra para esta palavra, a linha diz que a vai atualizar e
+  // mostra a nota que ela já tem — é assim que se acrescenta uma nota a
+  // uma regra antiga, que não tem outro sítio onde se editar.
   const descrever = () => {
     const n = pendentesCom(chave.value, idActual).length;
     info.textContent = n
       ? `arruma também ${n} por categorizar`
       : "para os próximos movimentos";
+    const existente = regraDe(chave.value);
+    if (rotulo) rotulo.textContent = existente ? "Atualizar regra" : "Criar regra para";
+    if (nota && nota.dataset.mexida !== "1") nota.value = existente?.note || "";
     return n;
   };
 
+  if (nota) nota.dataset.mexida = "";
   chave.value = proposta;
   const outros = descrever();
   const k = proposta.toUpperCase();
   const historico = state.transactions.some(t =>
     t.is_confirmed && t.id !== idActual &&
     String(t.description || "").toUpperCase().includes(k));
-  const jaHaRegra = state.rules.some(r => String(r.keyword).toUpperCase() === k);
+  const jaHaRegra = !!regraDe(k);
 
   on.checked = pendente && !jaHaRegra && (outros > 0 || historico);
   linha.classList.remove("hidden");
 
-  chave.oninput = descrever;
-  // Escrever na palavra-chave é querer a regra.
+  // Escrever na palavra-chave ou na nota é querer a regra.
+  chave.oninput = () => { on.checked = true; descrever(); };
   chave.onfocus = () => { on.checked = true; };
+  if (nota) {
+    nota.onfocus = () => { on.checked = true; };
+    nota.oninput = () => { nota.dataset.mexida = "1"; on.checked = true; };
+  }
 }
 
 function aoTeclado(e) {

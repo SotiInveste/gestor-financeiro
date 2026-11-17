@@ -115,6 +115,21 @@ export async function categorizeMany(ids, categoryId) {
   if (error) throw error;
 }
 
+/**
+ * Escreve a mesma nota em vários movimentos.
+ *
+ * Quem chama passa só os que estão sem nota: a nota de uma regra
+ * nunca substitui o que se escreveu à mão.
+ */
+export async function setNotes(ids, note) {
+  if (!ids.length) return;
+  const { error } = await sb
+    .from("fin_transactions")
+    .update({ note })
+    .in("id", ids);
+  if (error) throw error;
+}
+
 /** Soft delete — preserva o histórico. */
 export async function archiveTransaction(id) {
   const { error } = await sb
@@ -168,14 +183,16 @@ export async function fetchRules() {
  * sobre as colunas simples (user_id, keyword), não sobre upper() —
  * ver a migração 002.
  */
-export async function upsertRule(keyword, categoryId) {
+export async function upsertRule(keyword, categoryId, { note } = {}) {
   const clean = keyword.trim().toUpperCase();
+  const linha = { user_id: currentUserId, keyword: clean, category_id: categoryId };
+  // A nota só vai no pedido quando foi mexida. Ausente, o upsert deixa
+  // a da regra como estava — e as regras sem nota continuam a gravar
+  // mesmo antes de correr a migração 015.
+  if (note !== undefined) linha.note = note ? note.trim() : null;
   const { data, error } = await sb
     .from("fin_rules")
-    .upsert(
-      { user_id: currentUserId, keyword: clean, category_id: categoryId },
-      { onConflict: "user_id,keyword" }
-    )
+    .upsert(linha, { onConflict: "user_id,keyword" })
     .select()
     .single();
   if (error) throw error;

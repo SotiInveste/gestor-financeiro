@@ -1429,3 +1429,8 @@ body {
   text-transform: uppercase; letter-spacing: .3px;
 }
 .sheet-regra-info { flex-basis: 100%; font-size: 12px; color: var(--text-soft); }
+/* A nota ocupa a linha toda e não vai em maiúsculas: é escrita como
+   se quer ver na lista, ao contrário da palavra-chave. */
+.sheet-regra input.sheet-regra-nota {
+  flex: 1 1 100%; text-transform: none; letter-spacing: 0; font-weight: 400;
+}

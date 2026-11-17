@@ -475,10 +475,10 @@ async function editCategory(span, t) {
   // Cancelou, ou escolheu o que já lá estava sem pedir regra: nada
   // mudou no ecrã, por isso também não há nada a repintar.
   if (!escolha) return;
-  const { categoryId, regra } = escolha;
+  const { categoryId, regra, nota } = escolha;
   if (categoryId === t.category_id && t.is_confirmed && !regra) return;
 
-  await gravarCategoria(t, categoryId, { regra, oferecer: false });
+  await gravarCategoria(t, categoryId, { regra, nota, oferecer: false });
 }
 
 /**
@@ -488,7 +488,7 @@ async function editCategory(span, t) {
  * <select> nativo, mantém-se o aviso antigo a propor uma — no seletor
  * a proposta já foi feita na própria folha.
  */
-async function gravarCategoria(t, categoryId, { regra = null, oferecer = true } = {}) {
+async function gravarCategoria(t, categoryId, { regra = null, nota, oferecer = true } = {}) {
   try {
     await db.updateTransaction(t.id, { category_id: categoryId, is_confirmed: true });
     updateLocal(t.id, { category_id: categoryId, is_confirmed: true });
@@ -501,7 +501,7 @@ async function gravarCategoria(t, categoryId, { regra = null, oferecer = true } 
     return;
   }
 
-  if (regra) await criarRegra(regra, categoryId, t.id);
+  if (regra) await criarRegra(regra, categoryId, t.id, nota);
   else if (oferecer) offerRule(t.description, categoryId, t.id);
 }
 
@@ -514,15 +514,22 @@ async function gravarCategoria(t, categoryId, { regra = null, oferecer = true } 
  * outros quatro continuavam a laranja. Só mexe nos que estão por
  * categorizar — um movimento já arrumado, à mão ou por outra regra,
  * fica como está.
+ *
+ * A nota da regra vai para os que arruma e para o próprio movimento
+ * que lhe deu origem, mas só onde a nota está vazia: o que se escreveu
+ * à mão ganha sempre. «nota» undefined é «não mexer»: a regra fica com
+ * a nota que tinha.
  */
-async function criarRegra(keyword, categoryId, excluirId = null) {
+async function criarRegra(keyword, categoryId, excluirId = null, nota = undefined) {
   let rule;
   try {
-    rule = await db.upsertRule(keyword, categoryId);
+    rule = await db.upsertRule(keyword, categoryId, { note: nota });
     state.rules = state.rules.filter(r => r.id !== rule.id).concat(rule);
   } catch (err) {
     console.error("Erro ao guardar a regra:", err);
-    toast(err?.message || "Não foi possível guardar a regra.", "err");
+    toast(/column|schema cache/i.test(err?.message || "")
+      ? "Falta correr a migração 015_nota_nas_regras.sql no Supabase."
+      : (err?.message || "Não foi possível guardar a regra."), "err");
     return;
   }
 
@@ -540,7 +547,28 @@ async function criarRegra(keyword, categoryId, excluirId = null) {
     }
   }
 
+  // A nota: nos arrumados agora e no movimento de origem, se vazios.
+  let comNota = 0;
+  if (rule.note) {
+    const origem = excluirId ? findTransaction(excluirId) : null;
+    const semNota = [...apanhados, ...(origem ? [origem] : [])]
+      .filter(x => !String(x.note || "").trim());
+    if (semNota.length) {
+      try {
+        await db.setNotes(semNota.map(x => x.id), rule.note);
+        semNota.forEach(x => updateLocal(x.id, { note: rule.note }));
+        comNota = semNota.length;
+        renderTransactions();
+        document.dispatchEvent(new CustomEvent("data-changed"));
+      } catch (err) {
+        console.error("Erro ao escrever a nota da regra:", err);
+        toast("Regra guardada, mas não foi possível escrever a nota nos movimentos.", "err");
+      }
+    }
+  }
+
   toast(`Regra «${esc(rule.keyword)}» guardada` +
+    (comNota ? ` · nota «${esc(rule.note)}» em ${comNota}` : "") +
     (apanhados.length
       ? ` · mais ${apanhados.length} movimento${apanhados.length === 1 ? "" : "s"} arrumado${apanhados.length === 1 ? "" : "s"}.`
       : "."), "ok");
@@ -589,10 +617,13 @@ function offerRule(description, categoryId, excluirId = null) {
           <label>Palavra-chave</label>
           <input type="text" data-field="keyword" value="${esc(keyword)}">
           <label>Categoria</label>
-          <select data-field="categoryId">${categoryOptions(categoryId)}</select>`,
+          <select data-field="categoryId">${categoryOptions(categoryId)}</select>
+          <label>Nota (opcional)</label>
+          <input type="text" data-field="note" placeholder="Ex.: Loja Primor">`,
       });
       if (!result) return;
-      await criarRegra(result.keyword, result.categoryId, excluirId);
+      await criarRegra(result.keyword, result.categoryId, excluirId,
+        result.note ? result.note : undefined);
     },
   });
 }

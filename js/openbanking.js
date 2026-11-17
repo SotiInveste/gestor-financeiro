@@ -276,13 +276,15 @@ async function importTransactions(account, incoming) {
 
     seen.add(t.entry_reference);
 
-    const { categoryId, matched } = categorize(t.description, state.rules);
+    const { categoryId, matched, note } = categorize(t.description, state.rules);
 
     rows.push({
       movement_date: t.movement_date || t.value_date,
       value_date: t.value_date,
       description: t.description,
-      note: "",
+      // A nota da regra, se tiver: é o que diz que loja é, quando a
+      // descrição do banco não o diz.
+      note: note || "",
       category_id: categoryId || fallbackCategoryId(t.amount),
       amount: t.amount,
       is_manual: false,

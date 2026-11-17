@@ -12,6 +12,9 @@ import { DEFAULT_RULES, categoryByName, fallbackCategoryId } from "./categories.
  * Aplica as regras do utilizador e, em último recurso, as regras base.
  * Devolve o id da categoria — as regras base guardam nomes, que são
  * resolvidos aqui contra o estado carregado do Supabase.
+ *
+ * Devolve também a nota da regra que acertou, se tiver uma. Só as
+ * regras do utilizador têm nota; as regras base não.
  */
 export function categorize(description, userRules) {
   const upper = String(description || "").toUpperCase();
@@ -19,7 +22,9 @@ export function categorize(description, userRules) {
   // 1) Regras do utilizador (prioridade)
   for (const rule of userRules) {
     if (upper.includes(String(rule.keyword).toUpperCase())) {
-      if (rule.category_id) return { categoryId: rule.category_id, matched: true };
+      if (rule.category_id) {
+        return { categoryId: rule.category_id, matched: true, note: rule.note || null };
+      }
     }
   }
 
@@ -30,11 +35,11 @@ export function categorize(description, userRules) {
       // Uma regra base pode apontar para uma categoria que o
       // utilizador entretanto renomeou ou arquivou. Nesse caso
       // segue-se para a regra seguinte em vez de falhar.
-      if (cat) return { categoryId: cat.id, matched: true };
+      if (cat) return { categoryId: cat.id, matched: true, note: null };
     }
   }
 
-  return { categoryId: null, matched: false };
+  return { categoryId: null, matched: false, note: null };
 }
 
 /** Lê o ficheiro e devolve as linhas prontas a inserir. */
@@ -107,13 +112,13 @@ export function parseStatement(arrayBuffer, userRules, knownHashes) {
     }
     seenInFile.add(hash);
 
-    const { categoryId, matched } = categorize(description, userRules);
+    const { categoryId, matched, note } = categorize(description, userRules);
 
     parsed.push({
       movement_date: finalMovement,
       value_date: finalValue,
       description,
-      note: "",
+      note: note || "",
       category_id: categoryId || fallbackCategoryId(amount),
       amount: Number(amount.toFixed(2)),
       is_manual: false,
