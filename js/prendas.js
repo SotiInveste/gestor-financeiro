@@ -488,11 +488,11 @@ function linhaHTML(p, { primeira, mov, resta, eventos, categorias }) {
     <tr data-gift="${p.id}" data-tx="${mov ? mov.id : ""}" class="${classes}">
       <td class="cell-date">${celulaData}</td>
       ${celulaImagem(p)}
-      <td><input type="text" class="inline prenda-titulo" value="${esc(p.title)}"
+      <td class="prenda-c-titulo"><input type="text" class="inline prenda-titulo" value="${esc(p.title)}"
             placeholder="Título da prenda"></td>
       <td class="prenda-evento">${celulaEvento}</td>
-      <td><select class="inline prenda-dador">${opcoesPessoa(p.giver_id, "— quem deu —")}</select></td>
-      <td><select class="inline prenda-recetor">${opcoesPessoa(p.recipient_id, "— quem recebeu —")}</select></td>
+      <td class="prenda-c-de"><select class="inline prenda-dador">${opcoesPessoa(p.giver_id, "— quem deu —")}</select></td>
+      <td class="prenda-c-para"><select class="inline prenda-recetor">${opcoesPessoa(p.recipient_id, "— quem recebeu —")}</select></td>
       <td class="cell-amount">
         <input type="number" step="0.01" min="0" class="inline prenda-preco"
           value="${Number(p.price || 0).toFixed(2)}">
@@ -557,7 +557,7 @@ function resumoHTML(titulo, blocos, campo, comPorAtribuir) {
         <span class="muted">${state.year}</span>
       </div>
       <div class="table-scroll">
-        <table class="table resumo-table">
+        <table class="table resumo-table prendas-resumo">
           <tbody>
             ${linhas.map(l => `
               <tr>

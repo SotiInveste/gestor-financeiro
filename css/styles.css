@@ -1292,3 +1292,119 @@ body {
 .mes-total {
   margin-left: auto; font-size: 11px; font-weight: 600; color: var(--text-soft);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Prendas em cartões no telemóvel
+   ═══════════════════════════════════════════════════════════
+   A tabela precisa de 880 px; no telemóvel só se lia a deslizar
+   para o lado. Mesma receita dos movimentos: só CSS, as linhas
+   continuam linhas e mudam só de aspecto — a edição em linha e os
+   botões procuram o <tr> e continuam a encontrá-lo.
+
+   A grelha tem quatro colunas, 56px 1fr 56px 1fr, por causa do
+   «De» e do «Para»: assim cada um fica com metade exacta da
+   largura, em vez de um deles perder a coluna da imagem para o
+   outro.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Os resumos por pessoa usam as classes do resumo da Wheelt, e com
+   elas herdavam os 560 px mínimos que ele precisa para seis colunas.
+   Estes têm duas, nome e valor: no telemóvel o valor ficava fora do
+   ecrã. */
+.resumo-table.prendas-resumo { min-width: 0; }
+
+@media (max-width: 640px) {
+  .prendas-card.table-card { background: none; border: none; overflow: visible; }
+  .prendas-card .prendas-card-head { padding: 0 0 4px; }
+  .prendas-card .table-scroll { overflow-x: visible; }
+  .prendas-card .prendas-table { min-width: 0; display: block; }
+  .prendas-card .prendas-table thead { display: none; }
+  .prendas-card .prendas-table tbody { display: block; }
+
+  /* ─── O cartão ─── */
+
+  .prendas-card .prendas-table tbody tr {
+    display: grid;
+    grid-template-columns: 56px 1fr 56px 1fr;
+    grid-template-areas:
+      "img    titulo titulo titulo"
+      "img    data   data   valor"
+      "evento evento evento evento"
+      "de     de     para   para"
+      "accoes accoes accoes accoes";
+    gap: 8px;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .prendas-card .prendas-table tbody td {
+    display: block;
+    border: none;
+    padding: 0;
+    background: none;
+  }
+  .prendas-card .prendas-table tbody tr:hover td { background: none; }
+
+  /* Um movimento dividido em várias prendas: só o primeiro cartão
+     traz a data. Os seguintes encostam-se a ele, com um traço
+     tracejado, para se ler que são o mesmo pagamento. */
+  .prendas-card .prendas-table tbody tr:not(.grupo-inicio) {
+    margin-top: -6px;
+    border-top-style: dashed;
+  }
+  .prendas-card .prendas-table tbody tr.grupo-inicio td { border-top: none; }
+
+  /* Qualificados com td e tbody: a regra geral das células, mais
+     acima, é mais específica e punha-as todas em display: block. */
+  .prendas-card .prendas-table tbody td.prenda-img-cel {
+    grid-area: img; align-self: start; width: auto;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .prendas-card .prenda-c-titulo { grid-area: titulo; }
+  .prendas-card .prenda-titulo { font-size: 15px; font-weight: 600; }
+
+  .prendas-card .cell-date { grid-area: data; font-size: 12px; }
+  .prendas-card .prendas-table tbody td.cell-date:empty { display: none; }
+  .prendas-card .prendas-table tr.manual .prenda-data { min-width: 0; }
+
+  .prendas-card .cell-amount { grid-area: valor; }
+  .prendas-card .prenda-preco { font-size: 15px; font-weight: 700; text-align: right; }
+
+  .prendas-card .prenda-evento { grid-area: evento; white-space: normal; }
+
+  /* Sem cabeçalho de tabela, um nome sozinho não diz se é quem deu
+     ou quem recebeu. */
+  .prendas-card .prenda-c-de { grid-area: de; }
+  .prendas-card .prenda-c-para { grid-area: para; }
+  .prendas-card .prenda-c-de::before,
+  .prendas-card .prenda-c-para::before {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .prendas-card .prenda-c-de::before { content: "De"; }
+  .prendas-card .prenda-c-para::before { content: "Para"; }
+
+  .prendas-card .cell-actions { grid-area: accoes; }
+  .prendas-card .row-actions { justify-content: flex-end; gap: 8px; }
+
+  /* Alvos de toque, como nos movimentos. */
+  .prendas-card .btn-check,
+  .prendas-card .btn-split,
+  .prendas-card .btn-dir,
+  .prendas-card .btn-del {
+    min-width: 44px;
+    padding: 9px 14px;
+    font-size: 15px;
+  }
+
+  /* A cor das tratadas tem de ganhar ao fundo do cartão. */
+  .prendas-card .prendas-table tbody tr.validated { background: var(--tint-green-bg); }
+}
