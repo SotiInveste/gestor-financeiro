@@ -52,7 +52,11 @@ export function exportToExcel() {
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     ws["!cols"] = [{ wch: 28 }, { wch: 12 }, { wch: 12 }, { wch: 42 }, { wch: 22 }, { wch: 13 }];
 
-    const headerRowIdx = 6; // 0-indexed
+    // Procurado, e não escrito à mão: era 6, e quando entrou a linha
+    // «Total Poupança» o cabeçalho desceu para a 7 sem o número
+    // acompanhar. O verde das validadas passou a sair uma linha acima
+    // e no Excel pareciam validados os movimentos errados.
+    const headerRowIdx = aoa.indexOf(HEADERS);
 
     // Cabeçalho a negrito
     HEADERS.forEach((_, c) => {
@@ -109,7 +113,10 @@ export function exportToExcel() {
     const addr = XLSX.utils.encode_cell({ r: 0, c });
     if (wsAnnual[addr]) wsAnnual[addr].s = { font: { bold: true } };
   }
-  for (let r = 1; r <= 3; r++) {
+  // Todas as linhas de totais, e não um número fixo: com o 3 escrito
+  // à mão, a linha do Saldo ficou sem negrito e sem euros quando a da
+  // Poupança entrou antes dela.
+  for (let r = 1; r < annual.length; r++) {
     const addr = XLSX.utils.encode_cell({ r, c: 0 });
     if (wsAnnual[addr]) wsAnnual[addr].s = { font: { bold: true } };
     for (let c = 1; c <= 13; c++) {
