@@ -34,7 +34,7 @@ js/
   categories.js         # consultas sobre state.categories + DEFAULT_RULES
   import.js             # parser do extrato Activo Bank
   transactions.js       # tabela e edição inline
-  dashboard.js          # gráficos
+  dashboard.js          # painel: donut, lista por grupo, evolução anual
   export.js             # exportação Excel
   theme.js              # tema claro/escuro (auto-inicializável)
   ui.js                 # toasts, modais, spinners
@@ -324,6 +324,11 @@ Quadro por baixo dos totais, na página de movimentos (`js/resumo-grupo.js`).
   de conta. Foi extraído do `currentMonthTransactions` por causa disto.
 - Se o código não existir, esconde-se e escreve na consola a lista de
   grupos com os respectivos códigos.
+- **Subtotais por categoria** ao fundo, antes do total, por ordem de peso
+  (desde 22/10/2026). Vão todos juntos no fim e não intercalados na lista:
+  intercalá-los obrigava a ordenar os movimentos por categoria e perdia-se
+  a leitura por data, que é como se confere um extracto. Com uma categoria
+  só não aparecem — seria a linha do total, escrita duas vezes.
 
 ### Visto «Pago» (migração 013)
 
@@ -389,13 +394,97 @@ Ao lado da contagem de movimentos, a verde, quando o período tem movimentos
 tem nada por validar, e a marca seria uma mentira animadora. Segue o filtro
 de conta, tal como a contagem ao lado. No modo anual diz «Ano fechado».
 
+## Painel
+
+Dois cartões, desde 22/10/2026: **«Despesas por grupo — Gráfico»** (o donut)
+e **«Despesas por grupo»** (a lista). O donut das categorias desapareceu —
+dizia o mesmo que a lista, em pior.
+
+### A lista, três níveis
+
+Grupo → categorias do grupo → movimentos da categoria, em `<details>`
+encaixados, com um botão **Expandir tudo / Fechar tudo** no cabeçalho que
+abre e fecha os três de uma vez (o rótulo diz o que vai fazer, não o estado
+em que está).
+
+- **Sem corte**: aparecem todos os grupos. A lista antiga parava nos 9
+  maiores e o resto do mês ficava invisível.
+- **As percentagens são sempre sobre a despesa do período**, nunca sobre o
+  grupo. Assim uma categoria vale o mesmo número onde quer que apareça e
+  podem comparar-se linhas de grupos diferentes. Uma casa decimal, aqui e
+  no centro do donut: com zero casas, várias fatias pequenas apareciam
+  todas como «2%».
+- Os `<details>` fecham-se a cada repintura, de propósito: abre-se pela
+  vista geral.
+- A mesma função serve o painel mensal e o anual — o id do destino é
+  argumento (`renderGruposComCategorias`, `ligarExpandirTudo`).
+
+No **anual**, a lista aparece por baixo do gráfico de barras e os movimentos
+de cada categoria vêm **por data, com o mês à cabeça** (nome, quantos
+movimentos, quanto somou). No ano, por ordem de valor não se percebia quando
+é que o dinheiro saiu. No mensal mantém-se a ordem por valor: ali o período
+já é um mês e separá-lo por mês não dizia nada.
+
+### O donut, e o que o Chart.js não documenta
+
+Um anel só. Em repouso há **um arco por grupo**; ao apontar um grupo, só
+esse se parte nas suas categorias, em tons da cor do grupo (a maior com a
+cor pura, as seguintes a clarear). Os outros grupos esbatem-se para 32% de
+opacidade, em vez de desaparecerem.
+
+Tudo o que se segue foi **medido**, não lido na documentação:
+
+- **O `spacing` não afasta os arcos.** Os ângulos ficam colados e o efeito é
+  pintado no desenho, encolhido nas fatias pequenas para elas não
+  desaparecerem — daí umas ficarem com mais espaço do que outras. O
+  intervalo verdadeiro é um **contorno da cor do cartão** com
+  `borderAlign: "inner"`: 2 px entre grupos e 1 px entre categorias do mesmo
+  grupo, e o espaço entre duas vizinhas é o dobro disso. Mais do que 2 e as
+  fatias pequenas somem-se: a este raio, um grupo com 1% do mês mede 10 px
+  de arco.
+- **O `spacing` também não é aplicável por fatia** — um array é passado
+  inteiro a cada arco.
+- **O `radius` tem de ser em pixéis, não em percentagem.** O controlador
+  desconta o maior `offset` do espaço disponível, e o anel inteiro encolhia
+  13 px ao destacar uma fatia. Com o raio fixo, mede o mesmo nos dois
+  estados — e tem de ser recalculado à mão no `onResize`.
+- **Não existe raio por fatia.** O crescimento do grupo apontado é feito no
+  `beforeDatasetDraw` e desfeito no `afterDatasetDraw`, senão o controlador
+  apaga-o na repintura seguinte.
+- **O salto não é o `offset`.** O `offset` empurra cada fatia na direcção do
+  meio *dela própria*: com o grupo aberto em categorias, a fatia grande ia
+  para um lado e as pequenas para outro, e o grupo desfazia-se. O
+  deslocamento é feito no mesmo plugin, com o **vector do meio do grupo**
+  aplicado a todas as fatias dele.
+- **O rato é lido pelo ângulo, e no sítio onde a fatia está desenhada.** O
+  índice do arco muda quando um grupo se abre; o ângulo não. E o grupo
+  apontado é medido a partir do centro para onde saltou — medido do centro
+  do anel, dava o ângulo do sítio onde a fatia *estaria* se não tivesse
+  saltado, e anunciava-se a categoria do lado.
+- **O salto é pequeno (12 px) e o grupo cresce também para dentro, o mesmo
+  que salta.** Com 26 px, a fatia fugia debaixo do cursor e ficava a
+  mostrar-se um valor com o rato em cima de fundo. Para fora cresce 16,
+  nunca menos do que o salto, porque nas pontas do grupo o deslocamento é
+  quase todo de lado. Medição de controlo: em 1080 pontos sobre o anel,
+  952 caem exactamente na fatia anunciada, 128 no intervalo entre duas
+  (anuncia-se uma das vizinhas) e **nenhum numa fatia diferente**.
+
+O centro do anel é **HTML sobreposto**, não pintado na tela: herda as cores
+e a letra do tema e muda com o claro/escuro sem redesenhar nada. Tem
+`pointer-events: none`, senão o próprio texto roubava o rato à fatia por
+baixo. Mostra o total do mês em repouso, o grupo quando se aponta um, e a
+categoria quando o grupo está aberto — nesse caso com o nome e o total do
+grupo numa etiqueta por cima, porque aberto o grupo todos os pontos do anel
+são categorias e o total dele deixaria de se poder ver.
+
 ## Período: mês ou ano
 
 `state.month` vale 0..11 para os meses e depois dois sentinelas:
 
-- **`ANUAL` (12)** — o ano inteiro. O painel anual mostra só os KPIs do ano
-  e a evolução mensal; o gráfico de evolução saiu dos painéis mensais, onde
-  se repetia em todos os meses.
+- **`ANUAL` (12)** — o ano inteiro. O painel anual mostra os KPIs do ano, a
+  evolução mensal e, por baixo dela, a lista de despesas por grupo (ver
+  «Painel»); o gráfico de evolução saiu dos painéis mensais, onde se
+  repetia em todos os meses.
 - **`PRENDAS` (13)** — abre a página Prendas.
 
 O conjunto `ANO_INTEIRO` no `state.js` diz quais destes abrangem o ano, e é
