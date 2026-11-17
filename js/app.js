@@ -21,7 +21,7 @@ import { parseStatement, readFile } from "./import.js";
 import { MONTHS, fmt } from "./utils.js";
 import { toast, confirmModal } from "./ui.js";
 import { initTheme } from "./theme.js";
-import { initOpenBanking } from "./openbanking.js";
+import { initOpenBanking, sincronizarSeAntigo } from "./openbanking.js";
 import { initContas, renderContas, construirFiltroContas } from "./contas.js";
 import { initCategoriesPage, renderCategoriesPage } from "./categorias-page.js";
 import { initPrendasPage, renderPrendasPage } from "./prendas.js";
@@ -112,8 +112,22 @@ async function startApp(session) {
   requestAnimationFrame(() => renderAll());
 
   // Open banking à parte: se falhar, o resto da app continua a funcionar.
-  initOpenBanking().catch(err => {
-    console.error("Open banking indisponível:", err);
+  //
+  // A sincronização automática vem depois do regresso da autorização,
+  // e não ao mesmo tempo: nesse regresso já se pede o histórico todo, e
+  // uma segunda recolha em paralelo gastava o limite do banco.
+  initOpenBanking()
+    .catch(err => console.error("Open banking indisponível:", err))
+    .then(() => sincronizarSeAntigo())
+    .catch(err => console.error("Sincronização automática falhou:", err));
+
+  // No telemóvel a app instalada não fecha: fica em memória e volta.
+  // Sem isto, só sincronizava da primeira vez que se abria no dia.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      sincronizarSeAntigo().catch(err =>
+        console.error("Sincronização automática falhou:", err));
+    }
   });
 }
 

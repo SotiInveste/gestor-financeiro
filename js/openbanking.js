@@ -176,7 +176,9 @@ function intervaloIncremental(account) {
   return (desde < maisAntigo ? maisAntigo : desde).toISOString().slice(0, 10);
 }
 
-export async function syncAccount(account, btn = null, { historicoCompleto = false } = {}) {
+export async function syncAccount(account, btn = null, {
+  historicoCompleto = false, silencioso = false,
+} = {}) {
   if (!account) return;
   setLoading(btn, true, "A sincronizar…");
 
@@ -201,7 +203,9 @@ export async function syncAccount(account, btn = null, { historicoCompleto = fal
     avisarContas();
 
     if (!result.inserted) {
-      toast(
+      // Na sincronização automática, «nada de novo» é o caso normal e
+      // não merece aviso. Só se fala quando chegou alguma coisa.
+      if (!silencioso) toast(
         result.skipped
           ? `Nada de novo — ${result.skipped} movimentos já existiam.`
           : "O banco não devolveu movimentos novos.",
@@ -305,6 +309,55 @@ async function importTransactions(account, incoming) {
     skipped,
     autoCategorized: rows.filter(r => r.is_confirmed).length,
   };
+}
+
+// ═══ Sincronização ao abrir ═══
+
+/**
+ * Quanto tempo uma conta pode ficar sem sincronizar antes de a app o
+ * fazer sozinha, ao abrir ou ao voltar a ela.
+ *
+ * Doze horas: quem abre a app todos os dias sincroniza uma vez por
+ * dia, longe do limite de cerca de 4 recolhas diárias do banco.
+ */
+const AUTO_SYNC_HORAS = 12;
+
+let aSincronizar = false;
+
+/**
+ * Sincroniza as contas de banco que estão há mais de AUTO_SYNC_HORAS
+ * sem o fazer.
+ *
+ * Só com a app aberta — ao arrancar e ao voltar a ela — e nunca em
+ * segundo plano. Fica de fora:
+ *   · o que não é banco (contas manuais);
+ *   · o consentimento expirado: daria erro a cada abertura;
+ *   · as contas sem movimentos nenhuns. O ActivoBank devolve quatro
+ *     contas e só uma tem uso; sincronizar as outras gastava recolhas
+ *     do limite diário para nada.
+ *   · as nunca sincronizadas, que se ligam à mão.
+ */
+export async function sincronizarSeAntigo() {
+  if (aSincronizar) return;
+  const agora = Date.now();
+  const usadas = new Set(state.transactions.map(t => t.bank_account_id));
+
+  const contas = state.accounts.filter(a =>
+    a.kind === "bank" &&
+    a.last_synced_at &&
+    usadas.has(a.id) &&
+    !(a.consent_expires_at && new Date(a.consent_expires_at) <= agora) &&
+    agora - new Date(a.last_synced_at).getTime() > AUTO_SYNC_HORAS * 3_600_000);
+
+  if (!contas.length) return;
+
+  aSincronizar = true;
+  try {
+    // Uma de cada vez: em paralelo, as gravações e os avisos cruzavam-se.
+    for (const acc of contas) await syncAccount(acc, null, { silencioso: true });
+  } finally {
+    aSincronizar = false;
+  }
 }
 
 // ═══ Auxiliares ═══
