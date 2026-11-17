@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=60">
+  <link rel="stylesheet" href="css/styles.css?v=61">
 
   <!-- PWA: instalável no Android. Caminhos relativos de propósito —
        a app vive em /gestor-financeiro/ e não na raiz do domínio. -->
@@ -347,6 +347,17 @@
         <input type="search" id="cat-sheet-busca" class="select"
           placeholder="Procurar categoria…" autocomplete="off">
         <button id="cat-sheet-fechar" class="btn btn-ghost">Fechar</button>
+      </div>
+      <!-- Fora do #cat-sheet-corpo: esse é refeito a cada letra da
+           pesquisa, e a caixa marcada e a palavra escrita perdiam-se. -->
+      <div id="cat-sheet-regra" class="sheet-regra hidden">
+        <label class="sheet-regra-on">
+          <input type="checkbox" id="cat-sheet-regra-on">
+          Criar regra para
+        </label>
+        <input type="text" id="cat-sheet-regra-chave" class="select"
+          autocomplete="off" spellcheck="false" aria-label="Palavra-chave da regra">
+        <span id="cat-sheet-regra-info" class="sheet-regra-info"></span>
       </div>
       <div id="cat-sheet-corpo" class="sheet-corpo"></div>
     </div>

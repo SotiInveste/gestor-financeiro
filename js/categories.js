@@ -179,6 +179,73 @@ export function suggestKeyword(description) {
     .trim();
 }
 
+/**
+ * Palavras que aparecem em descrições de todo o tipo e não dizem quem
+ * é o comerciante. Ficam de fora da palavra-chave de uma regra.
+ */
+const GENERICAS = new Set([
+  "COMPRA", "PAG", "PAGAMENTO", "BXVAL", "TRF", "TRANSF", "TRANSFERENCIA",
+  "MB", "WAY", "CRED", "DEB", "LEV", "LEVANTAMENTO", "SEPA", "DOS", "DAS",
+  "LDA", "UNIP", "SOC",
+]);
+
+/**
+ * Proposta de palavra-chave para uma regra nova, a partir da descrição
+ * do banco.
+ *
+ * A palavra que distingue o comerciante, e não as três primeiras: com
+ * «COMPRA 1234 CONTINENTE MODELO OEIRAS» o suggestKeyword dava
+ * «CONTINENTE MODELO OEIRAS», e a regra já não apanhava o Continente
+ * de Lisboa.
+ *
+ * Experimenta primeiro uma palavra, depois duas e três seguidas, e fica
+ * com a mais curta que não apanhe movimentos já arrumados em categorias
+ * diferentes umas das outras. É o histórico que diz se a palavra chega:
+ * «MAE» numa transferência MB WAY serve, «LISBOA» numa compra não.
+ *
+ * A proposta é sempre um pedaço literal da descrição — as regras
+ * comparam com includes() e um pedaço reconstruído (sem o hífen que lá
+ * estava, por exemplo) nunca mais batia certo.
+ */
+export function palavraChave(description) {
+  const original = String(description || "").toUpperCase();
+  const palavras = original
+    .replace(/\b\d{2,}\b/g, " ")
+    .replace(/[^\wÀ-ÿ&]/g, " ")
+    .split(/\s+/)
+    .filter(p => p.length >= 3 && !GENERICAS.has(p) && !/^\d+$/.test(p));
+
+  if (!palavras.length) return suggestKeyword(description);
+
+  const candidatas = [];
+  for (let n = 1; n <= 3; n++) {
+    for (let i = 0; i + n <= palavras.length; i++) {
+      const c = palavras.slice(i, i + n).join(" ");
+      if (original.includes(c)) candidatas.push(c);
+    }
+  }
+
+  // Uma palavra serve se tudo o que ela apanha, já arrumado, está numa
+  // só categoria. Nada arrumado também serve — é um comerciante novo.
+  const serve = c => {
+    const cats = new Set(state.transactions
+      .filter(t => t.is_confirmed && String(t.description || "").toUpperCase().includes(c))
+      .map(t => t.category_id));
+    return cats.size <= 1;
+  };
+
+  return candidatas.find(serve) || candidatas[candidatas.length - 1];
+}
+
+/** Movimentos por categorizar que uma palavra-chave apanharia. */
+export function pendentesCom(keyword, excluirId = null) {
+  const k = String(keyword || "").trim().toUpperCase();
+  if (k.length < 3) return [];
+  return state.transactions.filter(t =>
+    !t.is_confirmed && t.id !== excluirId &&
+    String(t.description || "").toUpperCase().includes(k));
+}
+
 function escapeAttr(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => (
     { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]

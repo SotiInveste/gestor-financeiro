@@ -16,7 +16,9 @@
 // ═══════════════════════════════════════════════════════════
 
 import { state } from "./state.js";
-import { categoryById, groupedCategories, suggestKeyword } from "./categories.js";
+import {
+  categoryById, groupedCategories, suggestKeyword, palavraChave, pendentesCom,
+} from "./categories.js";
 import { categorize } from "./import.js";
 import { esc } from "./utils.js";
 
@@ -126,13 +128,76 @@ function listaHTML(filtro, actualId) {
 
 // ═══ Abrir e fechar ═══
 
-function fechar(resultado) {
+/**
+ * Fecha a folha. Com uma categoria escolhida, devolve-a junto com a
+ * regra pedida (a palavra-chave, se a caixa estava marcada, ou null).
+ */
+function fechar(categoryId) {
   const overlay = document.getElementById("cat-sheet");
   if (overlay) overlay.classList.add("hidden");
   document.removeEventListener("keydown", aoTeclado);
+
+  let resultado = null;
+  if (categoryId) {
+    const on = document.getElementById("cat-sheet-regra-on");
+    const chave = document.getElementById("cat-sheet-regra-chave");
+    const k = chave ? chave.value.trim().toUpperCase() : "";
+    resultado = { categoryId, regra: on && on.checked && k.length >= 3 ? k : null };
+  }
+
   const r = aResolver;
   aResolver = null;
   if (r) r(resultado);
+}
+
+/**
+ * A linha «Criar regra» do topo da folha.
+ *
+ * Substitui o aviso que aparecia depois de categorizar: durava oito
+ * segundos e pedia mais dois cliques num modal. Aqui marca-se antes de
+ * escolher a categoria, no mesmo sítio, e a escolha leva a regra.
+ *
+ * Vem marcada só quando o movimento está por categorizar e a palavra
+ * já se repete — noutros por categorizar ou no histórico. Um
+ * comerciante que aparece pela primeira vez não ganha regra sozinho:
+ * encher as regras de casos únicos só arranjava falsos positivos.
+ */
+function prepararRegra(descricao, pendente, idActual) {
+  const linha = document.getElementById("cat-sheet-regra");
+  const on = document.getElementById("cat-sheet-regra-on");
+  const chave = document.getElementById("cat-sheet-regra-chave");
+  const info = document.getElementById("cat-sheet-regra-info");
+  if (!linha || !on || !chave || !info) return;
+
+  const proposta = palavraChave(descricao);
+  if (!proposta || proposta.length < 3) {
+    linha.classList.add("hidden");
+    on.checked = false;
+    return;
+  }
+
+  const descrever = () => {
+    const n = pendentesCom(chave.value, idActual).length;
+    info.textContent = n
+      ? `arruma também ${n} por categorizar`
+      : "para os próximos movimentos";
+    return n;
+  };
+
+  chave.value = proposta;
+  const outros = descrever();
+  const k = proposta.toUpperCase();
+  const historico = state.transactions.some(t =>
+    t.is_confirmed && t.id !== idActual &&
+    String(t.description || "").toUpperCase().includes(k));
+  const jaHaRegra = state.rules.some(r => String(r.keyword).toUpperCase() === k);
+
+  on.checked = pendente && !jaHaRegra && (outros > 0 || historico);
+  linha.classList.remove("hidden");
+
+  chave.oninput = descrever;
+  // Escrever na palavra-chave é querer a regra.
+  chave.onfocus = () => { on.checked = true; };
 }
 
 function aoTeclado(e) {
@@ -149,9 +214,12 @@ function aoTeclado(e) {
 }
 
 /**
- * Abre a folha e devolve o id escolhido, ou null se for cancelada.
+ * Abre a folha e devolve { categoryId, regra }, ou null se for
+ * cancelada. Sem a folha na página devolve undefined.
  */
-export function escolherCategoria({ actualId = null, descricao = "" } = {}) {
+export function escolherCategoria({
+  actualId = null, descricao = "", pendente = false, movimentoId = null,
+} = {}) {
   const overlay = document.getElementById("cat-sheet");
   const busca = document.getElementById("cat-sheet-busca");
   const corpo = document.getElementById("cat-sheet-corpo");
@@ -174,6 +242,7 @@ export function escolherCategoria({ actualId = null, descricao = "" } = {}) {
 
   busca.value = "";
   pintar();
+  prepararRegra(descricao, pendente, movimentoId);
   overlay.classList.remove("hidden");
 
   busca.oninput = pintar;

@@ -100,6 +100,21 @@ export async function validateMany(ids) {
   if (error) throw error;
 }
 
+/**
+ * Põe vários movimentos na mesma categoria, de uma vez.
+ *
+ * Para quando se cria uma regra: os movimentos por categorizar que ela
+ * apanha são arrumados num só pedido, em vez de um por movimento.
+ */
+export async function categorizeMany(ids, categoryId) {
+  if (!ids.length) return;
+  const { error } = await sb
+    .from("fin_transactions")
+    .update({ category_id: categoryId, is_confirmed: true })
+    .in("id", ids);
+  if (error) throw error;
+}
+
 /** Soft delete — preserva o histórico. */
 export async function archiveTransaction(id) {
   const { error } = await sb

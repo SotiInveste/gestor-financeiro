@@ -9,7 +9,7 @@ import {
 } from "./state.js";
 import { fmt, shortDate, esc, today } from "./utils.js";
 import {
-  fillCategorySelect, suggestKeyword, categoryName,
+  fillCategorySelect, palavraChave, pendentesCom, categoryName,
   groupedCategories, categoryById,
 } from "./categories.js";
 import * as db from "./db.js";
@@ -464,31 +464,86 @@ function editNote(div, t) {
  * de deixar de dar para categorizar.
  */
 async function editCategory(span, t) {
-  const escolhido = await escolherCategoria({
+  const escolha = await escolherCategoria({
     actualId: t.category_id,
     descricao: t.description,
+    pendente: !t.is_confirmed,
+    movimentoId: t.id,
   });
 
-  if (escolhido === undefined) return editCategorySelect(span, t);
-  // Cancelou, ou escolheu o que já lá estava: nada mudou no ecrã,
-  // por isso também não há nada a repintar.
-  if (!escolhido || escolhido === t.category_id) return;
+  if (escolha === undefined) return editCategorySelect(span, t);
+  // Cancelou, ou escolheu o que já lá estava sem pedir regra: nada
+  // mudou no ecrã, por isso também não há nada a repintar.
+  if (!escolha) return;
+  const { categoryId, regra } = escolha;
+  if (categoryId === t.category_id && t.is_confirmed && !regra) return;
 
-  await gravarCategoria(t, escolhido);
+  await gravarCategoria(t, categoryId, { regra, oferecer: false });
 }
 
-async function gravarCategoria(t, categoryId) {
+/**
+ * Grava a categoria de um movimento.
+ *
+ * Com regra, guarda-a logo a seguir. Sem regra, e só no recurso do
+ * <select> nativo, mantém-se o aviso antigo a propor uma — no seletor
+ * a proposta já foi feita na própria folha.
+ */
+async function gravarCategoria(t, categoryId, { regra = null, oferecer = true } = {}) {
   try {
     await db.updateTransaction(t.id, { category_id: categoryId, is_confirmed: true });
     updateLocal(t.id, { category_id: categoryId, is_confirmed: true });
     renderTransactions();
     document.dispatchEvent(new CustomEvent("data-changed"));
-    offerRule(t.description, categoryId);
   } catch (err) {
     console.error("Erro ao gravar a categoria:", err);
     toast("Erro ao gravar a categoria.", "err");
     renderTransactions();
+    return;
   }
+
+  if (regra) await criarRegra(regra, categoryId, t.id);
+  else if (oferecer) offerRule(t.description, categoryId, t.id);
+}
+
+/**
+ * Guarda uma regra e arruma logo os movimentos por categorizar que ela
+ * apanha.
+ *
+ * Antes, a regra só valia para as sincronizações seguintes: chegavam
+ * cinco movimentos da Uber, corrigia-se um, criava-se a regra, e os
+ * outros quatro continuavam a laranja. Só mexe nos que estão por
+ * categorizar — um movimento já arrumado, à mão ou por outra regra,
+ * fica como está.
+ */
+async function criarRegra(keyword, categoryId, excluirId = null) {
+  let rule;
+  try {
+    rule = await db.upsertRule(keyword, categoryId);
+    state.rules = state.rules.filter(r => r.id !== rule.id).concat(rule);
+  } catch (err) {
+    console.error("Erro ao guardar a regra:", err);
+    toast(err?.message || "Não foi possível guardar a regra.", "err");
+    return;
+  }
+
+  const apanhados = pendentesCom(rule.keyword, excluirId);
+  if (apanhados.length) {
+    try {
+      await db.categorizeMany(apanhados.map(x => x.id), categoryId);
+      apanhados.forEach(x => updateLocal(x.id, { category_id: categoryId, is_confirmed: true }));
+      renderTransactions();
+      document.dispatchEvent(new CustomEvent("data-changed"));
+    } catch (err) {
+      console.error("Erro ao aplicar a regra aos pendentes:", err);
+      toast("Regra guardada, mas não foi possível arrumar os outros movimentos.", "err");
+      return;
+    }
+  }
+
+  toast(`Regra «${esc(rule.keyword)}» guardada` +
+    (apanhados.length
+      ? ` · mais ${apanhados.length} movimento${apanhados.length === 1 ? "" : "s"} arrumado${apanhados.length === 1 ? "" : "s"}.`
+      : "."), "ok");
 }
 
 /** Recurso: o <select> nativo, se a folha não estiver na página. */
@@ -513,9 +568,9 @@ function editCategorySelect(span, t) {
   select.onkeydown = e => { if (e.key === "Escape") { done = true; renderTransactions(); } };
 }
 
-/** Depois de corrigir uma categoria, propõe guardar a regra. */
-function offerRule(description, categoryId) {
-  const keyword = suggestKeyword(description);
+/** Recurso do <select> nativo: depois de corrigir, propõe a regra. */
+function offerRule(description, categoryId, excluirId = null) {
+  const keyword = palavraChave(description);
   if (!keyword || keyword.length < 3) return;
 
   const already = state.rules.some(r =>
@@ -537,14 +592,7 @@ function offerRule(description, categoryId) {
           <select data-field="categoryId">${categoryOptions(categoryId)}</select>`,
       });
       if (!result) return;
-      try {
-        const rule = await db.upsertRule(result.keyword, result.categoryId);
-        state.rules = state.rules.filter(r => r.id !== rule.id).concat(rule);
-        toast("Regra guardada.", "ok");
-      } catch (err) {
-        console.error("Erro ao guardar a regra:", err);
-        toast(err?.message || "Não foi possível guardar a regra.", "err");
-      }
+      await criarRegra(result.keyword, result.categoryId, excluirId);
     },
   });
 }
