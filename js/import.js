@@ -16,11 +16,25 @@ import { DEFAULT_RULES, categoryByName, fallbackCategoryId } from "./categories.
  * Devolve também a nota da regra que acertou, se tiver uma. Só as
  * regras do utilizador têm nota; as regras base não.
  */
+/**
+ * Ordem em que as regras do utilizador são tentadas: a palavra mais
+ * comprida primeiro.
+ *
+ * Era a ordem alfabética da consulta, e com ela «IKEA» ganhava sempre a
+ * «IKEA ALFRAGIDE IKEA FOO» — a regra do restaurante do IKEA nunca
+ * chegava a decidir. A mais comprida é a mais específica, e a
+ * específica tem de ganhar à geral. Em empate fica a ordem que vinha.
+ */
+export function ordemDasRegras(userRules) {
+  return [...(userRules || [])].sort((a, b) =>
+    String(b.keyword || "").length - String(a.keyword || "").length);
+}
+
 export function categorize(description, userRules) {
   const upper = String(description || "").toUpperCase();
 
-  // 1) Regras do utilizador (prioridade)
-  for (const rule of userRules) {
+  // 1) Regras do utilizador (prioridade), da mais específica para a geral
+  for (const rule of ordemDasRegras(userRules)) {
     if (upper.includes(String(rule.keyword).toUpperCase())) {
       if (rule.category_id) {
         return { categoryId: rule.category_id, matched: true, note: rule.note || null };

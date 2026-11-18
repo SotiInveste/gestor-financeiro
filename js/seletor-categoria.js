@@ -19,7 +19,7 @@ import { state } from "./state.js";
 import {
   categoryById, groupedCategories, suggestKeyword, palavraChave, pendentesCom,
 } from "./categories.js";
-import { categorize } from "./import.js";
+import { categorize, ordemDasRegras } from "./import.js";
 import { esc } from "./utils.js";
 
 /** Quantas sugestões, no máximo. Mais do que isto já é uma lista. */
@@ -183,7 +183,7 @@ function prepararRegra(descricao, pendente, idActual) {
   // propõe — para lhe mudar a categoria ou a nota. Propor uma palavra
   // nova criava uma segunda regra para o mesmo comerciante.
   const desc = String(descricao || "").toUpperCase();
-  const existenteJa = state.rules.find(r =>
+  const existenteJa = ordemDasRegras(state.rules).find(r =>
     r.keyword && desc.includes(String(r.keyword).toUpperCase()));
   const proposta = existenteJa ? String(existenteJa.keyword).toUpperCase()
                                : palavraChave(descricao);
