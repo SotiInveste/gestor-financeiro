@@ -32,7 +32,7 @@ js/
   db.js                 # leituras/escritas
   state.js              # estado partilhado e cálculos derivados
   categories.js         # consultas sobre state.categories + DEFAULT_RULES
-  import.js             # parser do extrato Activo Bank
+  import.js             # parser do extrato Activo Bank + categorize() e ordem das regras
   transactions.js       # tabela e edição inline
   dashboard.js          # painel: donut, lista por grupo, evolução anual
   export.js             # exportação Excel
@@ -41,7 +41,10 @@ js/
   utils.js              # datas, formatação, hashes
   openbanking.js        # ligação ao banco, sincronização, secção "Banco ligado"
   contas.js             # listagem de contas e contas manuais
-  categorias-page.js    # página de gestão de categorias
+  categorias-page.js    # página de categorias (separadores Categorias | Regras)
+  regras.js             # regras: criar, alterar, apagar, aplicar aos pendentes, avaliar
+  regras-page.js        # área de regras na página de categorias
+  icones.js             # botões só com ícone, partilhados pelas duas áreas
   resumo-grupo.js       # quadro de resumo de um grupo, na página de movimentos
   prendas.js            # página Prendas
   seletor-categoria.js  # folha de escolha de categoria, com pesquisa
@@ -83,6 +86,10 @@ Supabase. As migrações em `supabase/migrations/` são aditivas e idempotentes.
 - Guardas defensivas antes de tocar no DOM (`if (!el) return;`) — a app troca de página sem recarregar.
 - Toda a saída para o utilizador passa por `toast()` ou `confirmModal()`, nunca `alert()`.
 - Erros: `console.error` com contexto + mensagem legível ao utilizador. Nunca engolir silenciosamente.
+- **Terminações de linha: manter as de cada ficheiro.** Quase tudo é CRLF; o
+  `seletor-categoria.js` e as migrações são LF. Reescrever um ficheiro noutra
+  terminação faz o commit mostrá-lo inteiro como mudado e esconde a alteração
+  verdadeira — comparar o diff com produção antes de publicar.
 
 ## Formato do extrato Activo Bank
 
@@ -160,8 +167,10 @@ push (consentimento do banco a expirar, lembrete de fim de mês).
   maskable tem as letras dentro do círculo interior de 80%, que é o único
   garantido de sobreviver à máscara do launcher.
 
-**Por fazer:** Fase 2 (Movimentos em cartões no telemóvel — as tabelas
-precisam de 820-880 px) e Fase 3 (notificações).
+**Feito:** Fase 2 — os Movimentos (v1.7) e as Prendas (17/11/2026) passam a
+cartões abaixo dos 640 px. **Adiado por decisão do Tiago a 17/11/2026:** Fase 3
+(notificações). Sincronizar no servidor sem abrir a app fica parado com ela:
+só compensa junto com as notificações.
 
 ## Unicidade: a autoridade é a base de dados
 
@@ -223,8 +232,82 @@ Duas camadas, por esta ordem:
 1. `fin_rules` — regras do utilizador (têm prioridade).
 2. `DEFAULT_RULES` em `categories.js` — regras base.
 
-Quando o utilizador corrige uma categoria manualmente, a app propõe guardar
-a regra. É esta aprendizagem que reduz o trabalho mensal — não a remover.
+É esta aprendizagem que reduz o trabalho mensal — não a remover.
+
+**As regras só atuam nos movimentos que chegam do banco ou do Excel.** Os
+lançados à mão (cartão refeição, dinheiro) são categorizados à mão e nunca
+passam por elas. Qualquer análise de regras tem de os deixar de fora — com
+eles, o Pingo Doce parecia em conflito quando a diferença era só o cartão
+com que se pagou.
+
+### Precedência: a mais específica ganha
+
+`ordemDasRegras()` (no `import.js`) tenta as regras do utilizador da palavra
+**mais comprida para a mais curta**; em empate fica a ordem que vinha. Era a
+ordem alfabética da consulta, e com ela «IKEA» ganhava sempre a «IKEA
+ALFRAGIDE IKEA FOO» — a regra do restaurante nunca chegava a decidir. Tudo o
+que pergunta «que regra decide este movimento» usa esta função: o
+`categorize()`, o seletor e a avaliação das regras.
+
+### Criar uma regra
+
+No próprio seletor de categoria, antes de tocar na categoria (ver o seletor
+mais abaixo), ou na área de regras. As duas usam o `guardarRegra()` do
+`js/regras.js`, e por isso fazem o mesmo:
+
+- **A palavra proposta é a que distingue o comerciante** — `palavraChave()`
+  no `categories.js`. Experimenta uma palavra, depois duas e três seguidas,
+  e fica com a mais curta que não apanhe movimentos já arrumados em
+  categorias diferentes. Descarta as palavras genéricas (`COMPRA`, `TRF`,
+  `MB`, `WAY`, …). Dá «CONTINENTE» e não «CONTINENTE MODELO OEIRAS», e «MAE»
+  numa transferência MB WAY em vez de «TRF MB WAY».
+- **A proposta é sempre um pedaço literal da descrição.** As regras comparam
+  com `includes()`. O `suggestKeyword()` antigo reconstruía as palavras sem a
+  pontuação, e em «UBER \*TRIP HELP.UBER.COM» propunha «UBER TRIP HELP» —
+  uma regra que **nunca batia certo**. É a causa provável da maior parte
+  das 9 regras sem efeito (de 29) encontradas a 18/11/2026 — não verificado
+  regra a regra.
+- **Ao guardar, os pendentes que a regra apanha ficam logo arrumados**, num
+  só pedido (`db.categorizeMany`). Antes a regra só valia para as
+  sincronizações seguintes. Os já arrumados não são tocados.
+
+### Nota da regra (migração 015)
+
+Uma regra pode levar uma nota (`fin_rules.note`), escrita nos movimentos que
+ela arruma: os que chegam do banco ou do Excel, os pendentes arrumados ao
+criá-la e o movimento de onde foi criada. Ex.: SENTIMENTAL JOURNEY → Beleza,
+nota «Primor» — a descrição do banco não diz que loja é.
+
+- **Nunca escreve por cima de uma nota que já exista** — só preenche vazias.
+- **`nota` undefined quer dizer «não mexer»**: o `upsertRule` só manda a
+  coluna quando foi mexida. Assim, uma regra antiga fica com a nota que tinha
+  e as regras sem nota gravam mesmo sem a migração corrida.
+- Apagar a nota tira-a da regra mas não dos movimentos já anotados.
+- ⚠️ O título de uma prenda vem da nota do movimento: uma regra com nota em
+  compras do grupo Prendas põe o nome da loja como título da prenda.
+
+### Área de regras (`js/regras-page.js`)
+
+Separador **Regras** na página de categorias, desde 18/11/2026: todas as
+regras, com pesquisa, criar, editar e apagar. Editar muda pelo **id**
+(`db.updateRule`) — pelo upsert da palavra, mudar a palavra criava uma regra
+nova e deixava a antiga.
+
+Cada regra mostra um **estado**, calculado pelo `analisarRegras()` sobre os
+movimentos não manuais, com o porquê escrito à vista (no telemóvel não há
+rato para um `title`):
+
+| Estado | Quando |
+| --- | --- |
+| Em conflito | em mais de 20% do que decide, a categoria final é outra |
+| Tapada | apanha movimentos, mas outra regra decide antes |
+| Sem efeito | nunca apanhou nenhum movimento |
+| Redundante | sem ela ficava tudo igual, e não tem nota a acrescentar |
+| Nova | criada há menos de 60 dias, ainda sem uso |
+| Útil | decide, e de acordo com o que o Tiago escolhe |
+
+«Sem efeito» e «redundante» dependem do que já entrou: uma despesa anual
+(seguro, IRS) pode ainda não ter voltado a aparecer.
 
 ## Categorias
 
@@ -386,6 +469,20 @@ grupos, a lista nativa obrigava a percorrer tudo com o polegar.
 - Pesquisa sem acentos; procurar pelo nome do grupo traz as categorias dele.
 - Se a marcação faltar na página, cai no `<select>` de antes em vez de
   deixar de dar para categorizar.
+- **Faixa «Criar regra para [palavra]»** no topo, fora do `#cat-sheet-corpo`
+  (esse é refeito a cada letra da pesquisa). Marca-se antes de tocar na
+  categoria e a escolha leva a regra. Substituiu o aviso de oito segundos com
+  um modal que aparecia depois de categorizar.
+  - Vem **marcada só** quando o movimento está por categorizar, a palavra se
+    repete (noutros pendentes ou no histórico) e ainda não há regra para ela.
+    Um comerciante novo não ganha regra sozinho.
+  - Se já há uma regra tua que apanha o movimento, é **essa** que se propõe
+    («Atualizar regra»), com a nota que tem — senão criava-se uma segunda
+    regra para o mesmo comerciante.
+  - Escrever na palavra ou na nota marca a caixa: pelo `input`, e não só pelo
+    `focus`, que nem sempre dispara.
+- Escolher a **mesma categoria** que um movimento por categorizar já tem
+  confirma-o. Antes não fazia nada e ele ficava a laranja para sempre.
 
 ### Marca «Mês fechado»
 
@@ -500,6 +597,15 @@ período. Migrações **010** (tabelas), **011** (validação e imagem) e **012*
 Lê os movimentos do **grupo 29**, do ano inteiro e de todas as contas —
 identificado pelo `code`, como o resumo por grupo, e pela mesma razão.
 
+**No telemóvel, cartões** (desde 17/11/2026, abaixo dos 640 px). Só CSS, como
+os dos movimentos: as linhas continuam `<tr>` e a edição em linha continua a
+encontrá-las. A grelha tem quatro colunas, `56px 1fr 56px 1fr`, para o «De» e
+o «Para» ficarem com metade exacta cada um. Um movimento dividido em várias
+prendas: só o primeiro cartão traz a data; os seguintes encostam-se com um
+traço tracejado. Os resumos por pessoa têm a classe `prendas-resumo` para não
+herdarem os 560 px mínimos do resumo da Wheelt — têm duas colunas, e no
+telemóvel o valor ficava fora do ecrã.
+
 ### Dois eixos: origem e direcção
 
 - **Origem** — a prenda vem de um movimento, ou é um registo manual
@@ -606,6 +712,26 @@ versões — a miniatura como está para a tabela, e uma de ~1024 px numa coluna
 serve: a página carrega todas as imagens de uma vez, e 50 prendas a 200 KB
 seriam 10 MB por abertura.
 
+## Exportação para Excel
+
+Uma folha por mês (totais no topo, depois os movimentos) e uma folha Anual.
+Conferida a 17/11/2026: as colunas e os valores são os mesmos de antes da
+migração das categorias — a categoria sai do `catName(category_id)`.
+
+**Lição de 17/11/2026 — um índice escrito à mão parte quando se acrescenta
+uma linha.** Desde a v1.3, quando entrou a linha «Total Poupança», o
+cabeçalho da tabela desceu uma linha e o `headerRowIdx` ficou no 6: o verde
+das linhas validadas saía **uma linha acima** e no ficheiro pareciam
+validados os movimentos errados. A folha Anual tinha o mesmo defeito no
+ciclo dos formatos (`r <= 3`), e o Saldo perdeu o negrito e os euros. Os dois
+números passaram a ser **procurados** (`aoa.indexOf(HEADERS)`,
+`r < annual.length`).
+
+Para testar, gerar o ficheiro de verdade em Node com o mesmo
+`xlsx.bundle.js` do CDN e reler as células. O bundle tem de ser carregado
+como no browser (`vm`, com `module`/`exports`/`require` escondidos), senão
+pede o `cpexcel.js` em separado e falha.
+
 ## Deduplicação
 
 - Movimentos importados de Excel: hash de `value_date | description | amount`,
@@ -685,6 +811,26 @@ lá, não nas funções, para as regras não existirem em dois sítios.
   body `{iss: "enablebanking.com", aud: "api.enablebanking.com", iat, exp}`. TTL máximo 24h.
 - Edge Functions fazem deploy pelo Dashboard do Supabase (o utilizador não usa CLI).
   O Dashboard não tem versionamento — manter sempre a cópia em `supabase/functions/`.
+
+### Sincronizar ao abrir (desde 17/11/2026)
+
+`sincronizarSeAntigo()` no `openbanking.js`, chamado ao arrancar (depois do
+regresso da autorização, que já pede o histórico todo) e no
+`visibilitychange` — no telemóvel a app instalada fica em memória e não volta
+a arrancar. Sincroniza as contas com **mais de 12 horas** sem o fazer.
+
+- Só com a app aberta — nunca em segundo plano.
+- Fica de fora o que não é banco, o consentimento expirado, as contas **sem
+  movimentos** (o ActivoBank devolve quatro contas e só uma tem uso: sincronizar
+  as outras gastava recolhas do limite diário) e as nunca sincronizadas.
+- Uma conta de cada vez, e nunca duas sincronizações ao mesmo tempo.
+- **Em silêncio quando não chega nada de novo**; avisa quando chegam
+  movimentos e quando falha.
+
+O Tiago abre a app ~1 vez por semana, mas o objectivo é categorizar e validar
+**todos os dias**, perto do movimento. O ✓ «tratado» é um passo próprio —
+serve para conferir os recibos e deitá-los fora — e **não se funde** com
+categorizar.
 
 ### Consultar movimentos: o intervalo é obrigatório
 
