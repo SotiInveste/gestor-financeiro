@@ -14,6 +14,8 @@ import { state } from "./state.js";
 import { groupedCategories, TIPOS, classeTipo, rotuloTipo } from "./categories.js";
 import { toast, confirmModal } from "./ui.js";
 import { esc } from "./utils.js";
+import { botaoIcone, ocupado } from "./icones.js";
+import { initRegrasPage, renderRegrasPage } from "./regras-page.js";
 
 let verArquivadas = false;
 let arrastada = null;       // linha de categoria
@@ -28,9 +30,23 @@ let grupoArrastado = null;  // bloco de grupo
 // com a vista geral.
 const expandidos = new Set();
 
+// Categorias ou regras. Não é guardado: a página abre sempre nas
+// categorias, que é o que lá se vai fazer quase sempre.
+let vista = "categorias";
+
 // ═══ Arranque ═══
 
 export function initCategoriesPage() {
+  document.querySelectorAll("[data-vista-cat]").forEach(b => {
+    b.onclick = () => { vista = b.dataset.vistaCat; renderCategoriesPage(); };
+  });
+  try {
+    initRegrasPage();
+  } catch (err) {
+    // A área das regras é à parte: se falhar, as categorias continuam.
+    console.error("Área de regras indisponível:", err);
+  }
+
   const btnNova = document.getElementById("btn-nova-categoria");
   if (btnNova) btnNova.onclick = criarCategoria;
 
@@ -60,6 +76,23 @@ async function recarregar() {
 // ═══ Render ═══
 
 export function renderCategoriesPage() {
+  document.querySelectorAll("[data-vista-cat]").forEach(b => {
+    const activa = b.dataset.vistaCat === vista;
+    b.classList.toggle("activa", activa);
+    b.setAttribute("aria-selected", String(activa));
+  });
+  document.getElementById("area-categorias")?.classList.toggle("hidden", vista !== "categorias");
+  document.getElementById("area-regras")?.classList.toggle("hidden", vista !== "regras");
+
+  if (vista === "regras") {
+    try {
+      renderRegrasPage();
+    } catch (err) {
+      console.error("Erro ao pintar as regras:", err);
+    }
+    return;
+  }
+
   const wrap = document.getElementById("categorias-lista");
   if (!wrap) return;
 
@@ -147,57 +180,6 @@ export function renderCategoriesPage() {
 
     wrap.appendChild(bloco);
   });
-}
-
-// ═══ Ícones ═══
-//
-// SVG em vez de texto: os símbolos unicode equivalentes desenham-se
-// de forma diferente em cada sistema, e alguns nem existem. O traço
-// segue o mesmo estilo do ícone de tema no index.html.
-
-const SVG_ATTRS =
-  'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
-  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
-
-const ICONES = {
-  editar: `<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>`,
-  arquivar: `<rect x="3" y="4" width="18" height="4" rx="1"/>` +
-            `<path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/>`,
-  reativar: `<rect x="3" y="4" width="18" height="4" rx="1"/>` +
-            `<path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/>` +
-            `<path d="M12 17v-5"/><path d="M9.5 14.5 12 12l2.5 2.5"/>`,
-  apagar: `<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>` +
-          `<path d="M6 6v14a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V6"/><path d="M10 11v6M14 11v6"/>`,
-  seta: `<path d="m9 6 6 6-6 6"/>`,
-};
-
-/**
- * Botão só com ícone.
- *
- * O title e o aria-label são obrigatórios: sem texto visível, são a
- * única forma de saber o que o botão faz.
- */
-function botaoIcone(tipo, titulo, aoClicar, classe = "") {
-  const b = document.createElement("button");
-  b.className = ("btn-icone " + classe).trim();
-  b.innerHTML = `<svg ${SVG_ATTRS}>${ICONES[tipo]}</svg>`;
-  b.title = titulo;
-  b.setAttribute("aria-label", titulo);
-  b.onclick = () => aoClicar(b);
-  return b;
-}
-
-/**
- * Estado de ocupado para botões de ícone.
- *
- * O setLoading do ui.js troca o textContent, o que aqui apagaria o
- * SVG. Basta desativar e esbater — o botão é recriado no render
- * seguinte de qualquer forma.
- */
-function ocupado(btn, sim) {
-  if (!btn) return;
-  btn.disabled = sim;
-  btn.classList.toggle("ocupado", sim);
 }
 
 function linhaCategoria(c, nMovimentos) {

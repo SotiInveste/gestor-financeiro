@@ -58,7 +58,11 @@ export function confirmModal({ title, text, okLabel = "Confirmar", extraHTML = "
       const inputs = extraEl.querySelectorAll("input, select");
       if (!inputs.length) return true;
       const data = {};
-      inputs.forEach(i => { data[i.dataset.field || i.id] = i.value; });
+      // Uma caixa de seleção devolve se está marcada: o value dela é
+      // sempre "on", marcada ou não.
+      inputs.forEach(i => {
+        data[i.dataset.field || i.id] = i.type === "checkbox" ? i.checked : i.value;
+      });
       return data;
     }
 

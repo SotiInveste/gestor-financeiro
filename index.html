@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GestorFin — Gestão de Despesas</title>
-  <link rel="stylesheet" href="css/styles.css?v=62">
+  <link rel="stylesheet" href="css/styles.css?v=63">
 
   <!-- PWA: instalável no Android. Caminhos relativos de propósito —
        a app vive em /gestor-financeiro/ e não na raiz do domínio. -->
@@ -307,17 +307,37 @@
       </section>
 
       <section id="page-categorias" class="page hidden">
-        <div class="actions-bar cat-toolbar">
-          <label class="cat-toggle">
-            <input type="checkbox" id="chk-ver-arquivadas">
-            Ver arquivadas
-          </label>
-          <span class="cat-toolbar-botoes">
-            <button id="btn-novo-grupo" class="btn btn-outline">+ Novo grupo</button>
-            <button id="btn-nova-categoria" class="btn btn-primary">+ Nova categoria</button>
-          </span>
+        <div class="cat-vistas" role="tablist" aria-label="Categorias ou regras">
+          <button type="button" class="cat-vista activa" role="tab" aria-selected="true"
+            data-vista-cat="categorias">Categorias</button>
+          <button type="button" class="cat-vista" role="tab" aria-selected="false"
+            data-vista-cat="regras">Regras</button>
         </div>
-        <div id="categorias-lista"></div>
+
+        <div id="area-categorias">
+          <div class="actions-bar cat-toolbar">
+            <label class="cat-toggle">
+              <input type="checkbox" id="chk-ver-arquivadas">
+              Ver arquivadas
+            </label>
+            <span class="cat-toolbar-botoes">
+              <button id="btn-novo-grupo" class="btn btn-outline">+ Novo grupo</button>
+              <button id="btn-nova-categoria" class="btn btn-primary">+ Nova categoria</button>
+            </span>
+          </div>
+          <div id="categorias-lista"></div>
+        </div>
+
+        <div id="area-regras" class="hidden">
+          <div class="actions-bar cat-toolbar">
+            <input type="search" id="regras-busca" class="select regras-busca"
+              placeholder="Procurar palavra, categoria ou nota…" autocomplete="off">
+            <span class="cat-toolbar-botoes">
+              <button id="btn-nova-regra" class="btn btn-primary">+ Nova regra</button>
+            </span>
+          </div>
+          <div id="regras-lista"></div>
+        </div>
       </section>
 
     </main>

@@ -9,13 +9,14 @@ import {
 } from "./state.js";
 import { fmt, shortDate, esc, today } from "./utils.js";
 import {
-  fillCategorySelect, palavraChave, pendentesCom, categoryName,
+  fillCategorySelect, palavraChave, categoryName,
   groupedCategories, categoryById,
 } from "./categories.js";
 import * as db from "./db.js";
 import { toast, confirmModal, setLoading } from "./ui.js";
 import { renderResumoGrupo } from "./resumo-grupo.js";
 import { escolherCategoria } from "./seletor-categoria.js";
+import { guardarRegra } from "./regras.js";
 
 let manualType = "expense";
 
@@ -501,77 +502,8 @@ async function gravarCategoria(t, categoryId, { regra = null, nota, oferecer = t
     return;
   }
 
-  if (regra) await criarRegra(regra, categoryId, t.id, nota);
+  if (regra) await guardarRegra(regra, categoryId, { excluirId: t.id, nota });
   else if (oferecer) offerRule(t.description, categoryId, t.id);
-}
-
-/**
- * Guarda uma regra e arruma logo os movimentos por categorizar que ela
- * apanha.
- *
- * Antes, a regra só valia para as sincronizações seguintes: chegavam
- * cinco movimentos da Uber, corrigia-se um, criava-se a regra, e os
- * outros quatro continuavam a laranja. Só mexe nos que estão por
- * categorizar — um movimento já arrumado, à mão ou por outra regra,
- * fica como está.
- *
- * A nota da regra vai para os que arruma e para o próprio movimento
- * que lhe deu origem, mas só onde a nota está vazia: o que se escreveu
- * à mão ganha sempre. «nota» undefined é «não mexer»: a regra fica com
- * a nota que tinha.
- */
-async function criarRegra(keyword, categoryId, excluirId = null, nota = undefined) {
-  let rule;
-  try {
-    rule = await db.upsertRule(keyword, categoryId, { note: nota });
-    state.rules = state.rules.filter(r => r.id !== rule.id).concat(rule);
-  } catch (err) {
-    console.error("Erro ao guardar a regra:", err);
-    toast(/column|schema cache/i.test(err?.message || "")
-      ? "Falta correr a migração 015_nota_nas_regras.sql no Supabase."
-      : (err?.message || "Não foi possível guardar a regra."), "err");
-    return;
-  }
-
-  const apanhados = pendentesCom(rule.keyword, excluirId);
-  if (apanhados.length) {
-    try {
-      await db.categorizeMany(apanhados.map(x => x.id), categoryId);
-      apanhados.forEach(x => updateLocal(x.id, { category_id: categoryId, is_confirmed: true }));
-      renderTransactions();
-      document.dispatchEvent(new CustomEvent("data-changed"));
-    } catch (err) {
-      console.error("Erro ao aplicar a regra aos pendentes:", err);
-      toast("Regra guardada, mas não foi possível arrumar os outros movimentos.", "err");
-      return;
-    }
-  }
-
-  // A nota: nos arrumados agora e no movimento de origem, se vazios.
-  let comNota = 0;
-  if (rule.note) {
-    const origem = excluirId ? findTransaction(excluirId) : null;
-    const semNota = [...apanhados, ...(origem ? [origem] : [])]
-      .filter(x => !String(x.note || "").trim());
-    if (semNota.length) {
-      try {
-        await db.setNotes(semNota.map(x => x.id), rule.note);
-        semNota.forEach(x => updateLocal(x.id, { note: rule.note }));
-        comNota = semNota.length;
-        renderTransactions();
-        document.dispatchEvent(new CustomEvent("data-changed"));
-      } catch (err) {
-        console.error("Erro ao escrever a nota da regra:", err);
-        toast("Regra guardada, mas não foi possível escrever a nota nos movimentos.", "err");
-      }
-    }
-  }
-
-  toast(`Regra «${esc(rule.keyword)}» guardada` +
-    (comNota ? ` · nota «${esc(rule.note)}» em ${comNota}` : "") +
-    (apanhados.length
-      ? ` · mais ${apanhados.length} movimento${apanhados.length === 1 ? "" : "s"} arrumado${apanhados.length === 1 ? "" : "s"}.`
-      : "."), "ok");
 }
 
 /** Recurso: o <select> nativo, se a folha não estiver na página. */
@@ -622,8 +554,9 @@ function offerRule(description, categoryId, excluirId = null) {
           <input type="text" data-field="note" placeholder="Ex.: Loja Primor">`,
       });
       if (!result) return;
-      await criarRegra(result.keyword, result.categoryId, excluirId,
-        result.note ? result.note : undefined);
+      await guardarRegra(result.keyword, result.categoryId, {
+        excluirId, nota: result.note ? result.note : undefined,
+      });
     },
   });
 }

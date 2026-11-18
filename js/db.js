@@ -199,6 +199,25 @@ export async function upsertRule(keyword, categoryId, { note } = {}) {
   return data;
 }
 
+/**
+ * Altera uma regra pelo id — palavra, categoria ou nota.
+ *
+ * Não pelo upsert da palavra: mudar a palavra com o upsert criava uma
+ * regra nova e deixava a antiga para trás.
+ */
+export async function updateRule(id, patch) {
+  const linha = { ...patch };
+  if (linha.keyword) linha.keyword = linha.keyword.trim().toUpperCase();
+  const { data, error } = await sb
+    .from("fin_rules")
+    .update(linha)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteRule(id) {
   const { error } = await sb.from("fin_rules").delete().eq("id", id);
   if (error) throw error;

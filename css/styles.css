@@ -1434,3 +1434,83 @@ body {
 .sheet-regra input.sheet-regra-nota {
   flex: 1 1 100%; text-transform: none; letter-spacing: 0; font-weight: 400;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Página de categorias: separadores e área de regras
+   ═══════════════════════════════════════════════════════════ */
+
+.cat-vistas {
+  display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+}
+.cat-vista {
+  border: none; background: none; cursor: pointer;
+  padding: 7px 16px; border-radius: 7px;
+  font-size: 14px; font-weight: 600; color: var(--text-soft);
+}
+.cat-vista:hover { color: var(--text); }
+.cat-vista.activa { background: var(--surface-soft); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+
+.regras-busca { flex: 1 1 260px; min-width: 0; max-width: 420px; }
+
+.regras-resumo {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+  margin-bottom: 12px; font-size: 14px;
+}
+.regras-arever { color: var(--amber); font-weight: 600; }
+.regras-dica { flex-basis: 100%; font-size: 12px; }
+
+.regras-lista { display: flex; flex-direction: column; gap: 6px; }
+
+/* Mesma família das linhas de categoria: a barra à esquerda diz o
+   estado, como lá diz o tipo. */
+.regra-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--border); border-left: 3px solid var(--green);
+  border-radius: var(--radius); background: var(--surface-soft);
+}
+.regra-row.conflito { border-left-color: var(--red); }
+.regra-row.aviso    { border-left-color: var(--amber); }
+.regra-row.neutro   { border-left-color: var(--border-strong); }
+.regra-row.nova     { border-left-color: var(--blue); }
+
+.regra-corpo { flex: 1; min-width: 0; }
+.regra-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.regra-palavra {
+  font-size: 13px; font-weight: 700; letter-spacing: .3px;
+  overflow-wrap: anywhere;
+}
+.regra-seta { color: var(--faint); }
+.regra-cat { font-size: 13px; color: var(--text-soft); }
+
+.regra-estado {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap; background: var(--neutral-bg); color: var(--neutral-fg);
+}
+.regra-estado.util     { background: var(--tint-green-bg); color: var(--green); }
+.regra-estado.conflito { background: var(--tint-red-bg); color: var(--red); }
+.regra-estado.aviso    { background: var(--tint-amber-bg); color: var(--amber); }
+.regra-estado.nova     { background: var(--tint-blue-bg); color: var(--blue); }
+
+.regra-sub { margin-top: 3px; font-size: 12px; color: var(--text-soft); }
+.regra-nota { font-style: italic; }
+.regra-nota::before { content: "\201C"; }
+.regra-nota::after { content: "\201D"; }
+.regra-porque { margin-top: 4px; font-size: 12px; color: var(--text-soft); line-height: 1.4; }
+
+.regra-input-palavra { text-transform: uppercase; letter-spacing: .3px; }
+/* É uma frase, não o nome de um campo: sem as maiúsculas pequenas que
+   os rótulos do modal levam. */
+.modal label.regra-aplicar {
+  display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  font-weight: 400; cursor: pointer;
+  text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text);
+}
+.regra-aplicar input { width: 18px; height: 18px; flex-shrink: 0; }
+
+@media (max-width: 560px) {
+  .cat-vistas { display: flex; }
+  .cat-vista { flex: 1; }
+  .regras-busca { max-width: none; }
+}
