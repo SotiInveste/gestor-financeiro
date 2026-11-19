@@ -324,8 +324,20 @@ function opcoesEvento(categorias, selecionado) {
     ).join("");
 }
 
-function celulaImagem(p) {
+function celulaImagem(p, fixa = false) {
   const src = imagens.get(p.id);
+
+  // Validada: a imagem vê-se, mas não se troca nem se tira. Sem
+  // imagem, a célula fica vazia em vez de oferecer o «+».
+  if (fixa) {
+    return src ? `
+      <td class="prenda-img-cel">
+        <button type="button" class="prenda-img fixa" data-accao="ver-imagem"
+          title="Ver em grande">
+          <img src="${src}" alt="" class="prenda-thumb">
+        </button>
+      </td>` : `<td class="prenda-img-cel"></td>`;
+  }
 
   // Sem imagem, o clique abre logo o seletor de ficheiro: não há
   // nada para ver e uma janela pelo meio era um passo a mais.
@@ -377,7 +389,7 @@ function aoTeclaImagem(e) {
  * migração 011), por isso a vista é limitada a 480 px: acima disso
  * já era ampliar pixéis e o resultado ficava pastoso.
  */
-function abrirImagem(giftId, titulo) {
+function abrirImagem(giftId, titulo, { fixa = false } = {}) {
   const ov = document.getElementById("img-popup");
   const img = document.getElementById("img-popup-src");
   const nome = document.getElementById("img-popup-titulo");
@@ -389,6 +401,7 @@ function abrirImagem(giftId, titulo) {
   img.src = src;
   img.alt = titulo || "Prenda";
   if (nome) nome.textContent = titulo || "";
+  ficheiro?.closest("label")?.classList.toggle("hidden", fixa);
   ov.classList.remove("hidden");
 
   if (ficheiro) {
@@ -438,25 +451,29 @@ function seccao({ id, titulo, subtitulo, vazio, blocos, eventos, categorias }) {
     return `<div class="card">${cabeca}<p class="muted resumo-vazio">${esc(vazio)}</p></div>`;
   }
 
+  // Nas dadas quem dá é sempre o Tiago: a coluna «De» estava sempre
+  // vazia e só tirava espaço às outras. Nas recebidas é ela que conta.
+  const comDe = id !== "dadas";
+
   const linhas = blocos.map(b => {
     const valor = b.mov ? Math.abs(Number(b.mov.amount)) : 0;
     const atribuido = b.items.reduce((s, p) => s + Number(p.price || 0), 0);
     const resta = b.mov ? Number((valor - atribuido).toFixed(2)) : 0;
 
     return b.items.map((p, i) => linhaHTML(p, {
-      primeira: i === 0, mov: b.mov, resta, eventos, categorias,
+      primeira: i === 0, mov: b.mov, resta, eventos, categorias, comDe,
     })).join("");
   }).join("");
 
   return `
-    <div class="card table-card prendas-card">
+    <div class="card table-card prendas-card prendas-${id}">
       <div class="prendas-card-head">${cabeca}</div>
       <div class="table-scroll">
         <table class="table prendas-table">
           <thead>
             <tr>
               <th>Data</th><th>Imagem</th><th>Título</th><th>Evento</th>
-              <th>De</th><th>Para</th><th class="right">Valor</th><th></th>
+              ${comDe ? "<th>De</th>" : ""}<th>Para</th><th class="right">Valor</th><th></th>
             </tr>
           </thead>
           <tbody>${linhas}</tbody>
@@ -465,49 +482,70 @@ function seccao({ id, titulo, subtitulo, vazio, blocos, eventos, categorias }) {
     </div>`;
 }
 
-function linhaHTML(p, { primeira, mov, resta, eventos, categorias }) {
+function linhaHTML(p, { primeira, mov, resta, eventos, categorias, comDe = true }) {
+  // Validada fica só de leitura: texto em vez de campos, que se lê
+  // melhor do que uma fila de caixas azuis. Para mexer, tira-se a
+  // validação primeiro — e o ✓ fica sempre à mão para isso.
+  const fixa = !!p.is_validated && !p.virtual;
+
   const classes = [
     primeira ? "grupo-inicio" : "",
     p.virtual ? "virtual" : "",
     p.is_validated ? "validated" : "",
+    fixa ? "fixa" : "",
     mov ? "" : "manual",
   ].filter(Boolean).join(" ");
+
+  const texto = (valor, vazio = "—") =>
+    valor ? esc(valor) : `<span class="muted">${vazio}</span>`;
 
   // Num movimento a data e o evento são dele e não se editam aqui —
   // mudam-se na página de movimentos. Num manual são da prenda.
   const celulaData = mov
     ? (primeira ? `<div>${shortDate(mov.value_date)}</div>` +
         (resta ? `<div class="prenda-resta">falta ${fmt(resta)}</div>` : "") : "")
-    : `<input type="date" class="inline prenda-data" value="${esc(p.gift_date || "")}">`;
+    : fixa
+      ? (p.gift_date ? shortDate(p.gift_date) : texto(null))
+      : `<input type="date" class="inline prenda-data" value="${esc(p.gift_date || "")}">`;
 
   const celulaEvento = mov
     ? esc(eventos.get(mov.category_id) || "—")
-    : `<select class="inline prenda-evento-sel">${opcoesEvento(categorias, p.event_category_id)}</select>`;
+    : fixa
+      ? texto(eventos.get(p.event_category_id))
+      : `<select class="inline prenda-evento-sel">${opcoesEvento(categorias, p.event_category_id)}</select>`;
+
+  const celulaPessoa = (classe, campo, id, vazio) => `
+      <td class="${classe}">${fixa
+        ? `<span class="prenda-fixo">${texto(nomePessoa(id))}</span>`
+        : `<select class="inline ${campo}">${opcoesPessoa(id, vazio)}</select>`}</td>`;
 
   return `
     <tr data-gift="${p.id}" data-tx="${mov ? mov.id : ""}" class="${classes}">
       <td class="cell-date">${celulaData}</td>
-      ${celulaImagem(p)}
-      <td class="prenda-c-titulo"><input type="text" class="inline prenda-titulo" value="${esc(p.title)}"
-            placeholder="Título da prenda"></td>
+      ${celulaImagem(p, fixa)}
+      <td class="prenda-c-titulo">${fixa
+        ? `<span class="prenda-titulo-fixo">${texto(p.title, "sem título")}</span>`
+        : `<input type="text" class="inline prenda-titulo" value="${esc(p.title)}"
+            placeholder="Título da prenda">`}</td>
       <td class="prenda-evento">${celulaEvento}</td>
-      <td class="prenda-c-de"><select class="inline prenda-dador">${opcoesPessoa(p.giver_id, "— quem deu —")}</select></td>
-      <td class="prenda-c-para"><select class="inline prenda-recetor">${opcoesPessoa(p.recipient_id, "— quem recebeu —")}</select></td>
-      <td class="cell-amount">
-        <input type="number" step="0.01" min="0" class="inline prenda-preco"
-          value="${Number(p.price || 0).toFixed(2)}">
+      ${comDe ? celulaPessoa("prenda-c-de", "prenda-dador", p.giver_id, "— quem deu —") : ""}
+      ${celulaPessoa("prenda-c-para", "prenda-recetor", p.recipient_id, "— quem recebeu —")}
+      <td class="cell-amount">${fixa
+        ? `<span class="prenda-preco-fixo">${fmt(Number(p.price || 0))}</span>`
+        : `<input type="number" step="0.01" min="0" class="inline prenda-preco"
+          value="${Number(p.price || 0).toFixed(2)}">`}
       </td>
       <td class="cell-actions">
         <div class="row-actions">
           <button class="btn-check${p.is_validated ? " on" : ""}" data-accao="validar"
             title="${p.is_validated ? "Marcar como não tratada" : "Marcar como tratada"}">✓</button>
-          ${mov ? `<button class="btn-split" data-accao="dividir"
+          ${mov && !fixa ? `<button class="btn-split" data-accao="dividir"
                      title="Dividir em mais uma prenda">+</button>` : ""}
-          ${mov ? "" : `<button class="btn-dir" data-accao="trocar-direccao"
+          ${mov || fixa ? "" : `<button class="btn-dir" data-accao="trocar-direccao"
                      title="${p.direction === "received"
                        ? "Passar para prendas dadas"
                        : "Passar para prendas recebidas"}">⇄</button>`}
-          ${p.virtual ? "" :
+          ${p.virtual || fixa ? "" :
             `<button class="btn-del" data-accao="apagar" title="Apagar prenda">✕</button>`}
         </div>
       </td>
@@ -643,13 +681,15 @@ function ligarEventos(categorias) {
 
     const pessoaDe = el => (el.value && el.value !== "__novo__" ? el.value : null);
 
+    // Numa linha validada não há campos, e nas dadas não há «De»: só
+    // vai para a base de dados o que está no ecrã. O que não está fica
+    // como estava, em vez de ser gravado a nulo.
     const valores = () => {
-      const v = {
-        title: titulo.value.trim(),
-        price: Number(preco.value) || 0,
-        giver_id: pessoaDe(dador),
-        recipient_id: pessoaDe(recetor),
-      };
+      const v = {};
+      if (titulo) v.title = titulo.value.trim();
+      if (preco) v.price = Number(preco.value) || 0;
+      if (dador) v.giver_id = pessoaDe(dador);
+      if (recetor) v.recipient_id = pessoaDe(recetor);
       // Só os manuais têm data e evento próprios; nos movimentos
       // vêm de lá e enviá-los aqui sobrescrevia-os com nulos.
       if (dataEl) v.gift_date = dataEl.value || null;
@@ -681,12 +721,12 @@ function ligarEventos(categorias) {
       }
     };
 
-    titulo.onchange = gravar;
-    preco.onchange = gravar;
+    if (titulo) titulo.onchange = gravar;
+    if (preco) preco.onchange = gravar;
     if (dataEl) dataEl.onchange = gravar;
     if (eventoEl) eventoEl.onchange = gravar;
 
-    [dador, recetor].forEach(sel => {
+    [dador, recetor].filter(Boolean).forEach(sel => {
       sel.onchange = async () => {
         if (sel.value === "__novo__") {
           const nova = await criarPessoa();
@@ -722,7 +762,11 @@ function ligarEventos(categorias) {
           else if (accao === "apagar") await apagar(giftId);
           else if (accao === "validar") await validar(giftId, virtual, garantir, row);
           else if (accao === "tirar-imagem") await tirarImagem(giftId);
-          else if (accao === "ver-imagem") abrirImagem(giftId, titulo.value);
+          else if (accao === "ver-imagem") {
+            abrirImagem(giftId,
+              titulo ? titulo.value : row.querySelector(".prenda-titulo-fixo")?.textContent,
+              { fixa: row.classList.contains("fixa") });
+          }
           else if (accao === "trocar-direccao") await trocarDireccao(giftId);
         } finally {
           btn.disabled = false;

@@ -1514,3 +1514,26 @@ body {
   .cat-vista { flex: 1; }
   .regras-busca { max-width: none; }
 }
+
+/* ═══ Prendas validadas: só de leitura ═══
+   Texto em vez de campos. Fica ao tamanho dos campos que substitui,
+   para a linha não saltar de altura ao validar. */
+.prendas-table tr.fixa td { color: var(--text); }
+.prenda-titulo-fixo { font-weight: 600; font-size: 13px; }
+.prenda-fixo { font-size: 12px; }
+.prenda-preco-fixo { font-weight: 700; font-size: 13px; white-space: nowrap; }
+.prenda-img.fixa { border-style: solid; }
+
+@media (max-width: 640px) {
+  /* Nas dadas não há «De»: o «Para» fica com a linha inteira. */
+  .prendas-card.prendas-dadas .prendas-table tbody tr {
+    grid-template-areas:
+      "img    titulo titulo titulo"
+      "img    data   data   valor"
+      "evento evento evento evento"
+      "para   para   para   para"
+      "accoes accoes accoes accoes";
+  }
+  .prendas-card .prenda-titulo-fixo { font-size: 15px; }
+  .prendas-card .prenda-preco-fixo { display: block; font-size: 15px; text-align: right; }
+}
